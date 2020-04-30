@@ -74,6 +74,7 @@ def render_correlation_heatmaps(
     """
     Render correlation heatmaps in to tabs
     """
+    # pylint: disable=too-many-locals
     tabs: List[Panel] = []
     tooltips = [("x", "@x"), ("y", "@y"), ("correlation", "@correlation{1.11}")]
     axis_range = itmdt["axis_range"]

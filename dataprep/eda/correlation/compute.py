@@ -2,7 +2,6 @@
     This module implements the intermediates computation
     for plot_correlation(df) function.
 """
-import phik
 import sys
 import warnings
 from enum import Enum, auto
@@ -17,7 +16,7 @@ import pandas as pd
 from scipy.stats import kendalltau
 
 from ...errors import UnreachableError
-from ..dtypes import CATEGORICAL_DTYPES, NUMERICAL_DTYPES
+from ..dtypes import NUMERICAL_DTYPES
 from ..intermediate import Intermediate
 from ..utils import to_dask
 
@@ -104,11 +103,11 @@ def compute_correlation(
         dfs = {}
 
         corrs_list = [
-            (cordx_phik, cordy_phik, corrs_phik, columns_phik),
-            (cordx_num, cordy_num, corrs_num, columns_num),
+            (cordx_phik, cordy_phik, corrs_phik),
+            (cordx_num, cordy_num, corrs_num),
         ]
 
-        for cordx, cordy, corrs, columns in corrs_list:
+        for (cordx, cordy, corrs,) in corrs_list:
             for method, corr in corrs.items():
                 df = dd.concat([cordx, cordy, dd.from_dask_array(corr)], axis=1)
                 df.columns = ["x", "y", "correlation"]
@@ -127,8 +126,20 @@ def compute_correlation(
 
                 # Translate int x,y coordinates to categorical labels
                 # Hint the return type of the function to dask through param "meta"
-                df["x"] = df["x"].apply(lambda e: columns[e], meta=("x", np.object))
-                df["y"] = df["y"].apply(lambda e: columns[e], meta=("y", np.object))
+                if method.name == "Phik":
+                    df["x"] = df["x"].apply(
+                        lambda e: columns_phik[e], meta=("x", np.object)
+                    )
+                    df["y"] = df["y"].apply(
+                        lambda e: columns_phik[e], meta=("y", np.object)
+                    )
+                else:
+                    df["x"] = df["x"].apply(
+                        lambda e: columns_num[e], meta=("x", np.object)
+                    )
+                    df["y"] = df["y"].apply(
+                        lambda e: columns_num[e], meta=("y", np.object)
+                    )
                 dfs[method.name] = df.compute()
 
         return Intermediate(
@@ -355,6 +366,8 @@ def phik_correlation_nxn(
 
         if len(selcols) > 1:
             corr = df[selcols].phik_matrix(interval_cols=intcols).values
+        else:
+            raise ValueError("The length of selcols should be larger than one")
 
         ncols = len(selcols)
         cordx, cordy = da.meshgrid(range(ncols), range(ncols))
@@ -489,6 +502,8 @@ def phik_1xn(
             corrs = df[selcols].phik_matrix(interval_cols=intcols).values
             corrs = np.delete(corrs[selcols.index(x), :], selcols.index(x))
             selcols = np.delete(selcols, selcols.index(x))
+        else:
+            raise ValueError("The length of selcols should be larger than one")
 
         return np.array(selcols), corr_filter(corrs, value_range, k)
 
