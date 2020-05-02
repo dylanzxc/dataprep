@@ -19,12 +19,10 @@ from .implicit_database import ImplicitDatabase, ImplicitTable
 INFO_TEMPLATE = Template(
     """{% for tb in tbs.keys() %}
 Table {{dbname}}.{{tb}}
-
 Parameters
 ----------
 {% if tbs[tb].required_params %}{{", ".join(tbs[tb].required_params)}} required {% endif %}
 {% if tbs[tb].optional_params %}{{", ".join(tbs[tb].optional_params)}} optional {% endif %}
-
 Examples
 --------
 >>> dc.query({{", ".join(["\\\"{}\\\"".format(tb)] + tbs[tb].joined_query_fields)}})
@@ -38,7 +36,6 @@ class Connector:
     """
     This is the main class of data_connector component.
     Initialize Connector class as the example code.
-
     Parameters
     ----------
     config_path
@@ -48,18 +45,17 @@ class Connector:
         The parameter for authentication, e.g. OAuth2
     kwargs
         Additional parameters
-
     Example
     -------
     >>> from dataprep.data_connector import Connector
     >>> dc = Connector("yelp", auth_params={"access_token":access_token})
     """
 
-    impdb: ImplicitDatabase
-    vars: Dict[str, Any]
+    _impdb: ImplicitDatabase
+    _vars: Dict[str, Any]
     _auth: Dict[str, Any]
-    session: Session
-    jenv: Environment
+    _session: Session
+    _jenv: Environment
 
     def __init__(
         self,
@@ -79,9 +75,11 @@ class Connector:
             ensure_config(config_path)
             path = config_directory() / config_path
 
-        self.vars = kwargs
+        self._impdb = ImplicitDatabase(path)
+
+        self._vars = kwargs
         self._auth = _auth or {}
-        self.jenv = Environment(undefined=StrictUndefined)
+        self._jenv = Environment(undefined=StrictUndefined)
 
     def _fetch(
         self,
@@ -165,11 +163,10 @@ class Connector:
         table: str,
         _auth: Optional[Dict[str, Any]] = None,
         _count: Optional[int] = None,
-        **where: Dict[str, Any],
+        **where: Any,
     ) -> pd.DataFrame:
         """
         Query the API to get a table.
-
         Parameters
         ----------
         table : str
@@ -184,10 +181,11 @@ class Connector:
         **where: Any
             The additional parameters required for the query.
         """
-        assert table in self.impdb.tables, f"No such table {table} in {self.impdb.name}"
+        assert (
+            table in self._impdb.tables
+        ), f"No such table {table} in {self._impdb.name}"
 
-        itable = self.impdb.tables[table]
-
+        itable = self._impdb.tables[table]
         if not itable.pag_params:
             resp = self._fetch(
                 table=itable, _auth=_auth, _count=-1, _cursor=-1, kwargs=where
@@ -250,7 +248,6 @@ class Connector:
     def table_names(self) -> List[str]:
         """
         Return all the names of the available tables in a list.
-
         Note
         ----
         We abstract each website as a database containing several tables.
@@ -294,17 +291,14 @@ class Connector:
         """
         This method shows the schema of the table that will be returned,
         so that the user knows what information to expect.
-
         Parameters
         ----------
         table_name
             The table name.
-
         Returns
         -------
         pd.DataFrame
             The returned data's schema.
-
         Note
         ----
         The schema is defined in the configuration file.
@@ -320,40 +314,3 @@ class Connector:
             new_schema_dict["column_name"].append(k)
             new_schema_dict["data_type"].append(schema[k]["type"])
         return pd.DataFrame.from_dict(new_schema_dict)
-
-    def query(
-        self, table: str, auth_params: Optional[Dict[str, Any]] = None, **where: Any,
-    ) -> pd.DataFrame:
-        """
-        Use this method to query the API and get the returned table.
-
-        Example
-        -------
-        >>> df = dc.query('businesses', term="korean", location="vancouver)
-
-        Parameters
-        ----------
-        table
-            The table name.
-        auth_params
-            The parameters for authentication. Usually the authentication parameters
-            should be defined when instantiating the Connector. In case some tables have different
-            authentication options, a different authentication parameter can be defined here.
-            This parameter will override the one from Connector if passed.
-        where
-            The additional parameters required for the query.
-
-        Returns
-        -------
-            pd.DataFrame
-                A DataFrame that contains the data returned by the website API.
-        """
-        assert (
-            table in self._impdb.tables
-        ), f"No such table {table} in {self._impdb.name}"
-
-        itable = self._impdb.tables[table]
-
-        resp = self._fetch(itable, auth_params, where)
-
-        return itable.from_response(resp)
