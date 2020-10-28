@@ -2,7 +2,7 @@
 This module implements the plot(df) function.
 """
 
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, List, Dict
 
 import dask.dataframe as dd
 import pandas as pd
@@ -13,6 +13,7 @@ from ..progress_bar import ProgressBar
 from ..report import Report
 from .compute import compute
 from .render import render
+from ..basic.configs import Config
 
 __all__ = ["plot", "compute", "render"]
 
@@ -39,6 +40,8 @@ def plot(
     tile_size: Optional[float] = None,
     dtype: Optional[DTypeDef] = None,
     progress: bool = True,
+    config: Union[Dict[str, any], str] = "auto",
+    display: Union[List[str], str] = "auto"
 ) -> Union[Report, Container]:
     """Generates plots for exploratory data analysis.
 
@@ -133,10 +136,15 @@ def plot(
         Specify Data Types for designated column or all columns.
         E.g.  dtype = {"a": Continuous, "b": "Nominal"} or
         dtype = {"a": Continuous(), "b": "nominal"}
-        or dtype = Continuous() or dtype = "Continuous" or dtype = Continuous()
+        or dtype = Continuous() or dtype = "Continuous" or dtype = Continuous().
     progress
         Enable the progress bar.
-
+    config
+        The config dict user passed in. E.g. config =  {"hist.bins": 20}
+        Without user's specifications, the default is "auto"
+    display
+        The list that contains the names of plots user wants to display, E.g. display =  ["bar", "hist"]
+        Without user's specifications, the default is "auto"
     Examples
     --------
     >>> import pandas as pd
@@ -147,7 +155,7 @@ def plot(
     >>> plot(iris, "petal_width", "species")
     """
     # pylint: disable=too-many-locals,line-too-long
-
+    cfg = Config.from_dict(display, config)
     with ProgressBar(minimum=1, disable=not progress):
         intermediate = compute(
             df,
@@ -167,8 +175,9 @@ def plot(
             stem=stem,
             value_range=value_range,
             dtype=dtype,
+            cfg=cfg
         )
-    figure = render(intermediate, yscale=yscale, tile_size=tile_size)
+    figure = render(intermediate, yscale=yscale, tile_size=tile_size, cfg=cfg)
     if intermediate.visual_type == "distribution_grid" or "_column" in intermediate.visual_type:
         return Container(figure, intermediate.visual_type)
     else:

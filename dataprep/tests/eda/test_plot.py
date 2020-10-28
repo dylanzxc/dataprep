@@ -69,3 +69,6 @@ def test_sanity_compute_5(simpledf: dd.DataFrame) -> None:
 def test_specify_column_type(simpledf: dd.DataFrame) -> None:
     plot(simpledf, dtype={"a": Nominal()})
     plot(simpledf, dtype=Nominal())
+
+def test_sanity_compute_6(simpledf: dd.DataFrame) -> None:
+    plot(simpledf, "d", config={"wordcloud.top_words": 20})

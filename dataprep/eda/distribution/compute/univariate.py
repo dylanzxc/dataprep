@@ -22,7 +22,7 @@ from ...dtypes import (
 )
 from ...intermediate import Intermediate
 from .common import _calc_line_dt, gaussian_kde, normaltest
-
+from ...basic.configs import Config
 
 def compute_univariate(
     df: dd.DataFrame,
@@ -32,11 +32,13 @@ def compute_univariate(
     largest: bool,
     timeunit: str,
     top_words: int,
+    cfg: Config,
     stopword: bool = True,
     lemmatize: bool = False,
     stem: bool = False,
     value_range: Optional[Tuple[float, float]] = None,
     dtype: Optional[DTypeDef] = None,
+
 ) -> Intermediate:
     """Compute functions for plot(df, x).
 
@@ -82,6 +84,8 @@ def compute_univariate(
         E.g.  dtype = {"a": Continuous, "b": "Nominal"} or
         dtype = {"a": Continuous(), "b": "nominal"}
         or dtype = Continuous() or dtype = "Continuous" or dtype = Continuous()
+    cfg:
+        Config instance created by config and display that user passed in.
     """
     # pylint: disable=too-many-locals, too-many-arguments
 
@@ -97,13 +101,7 @@ def compute_univariate(
         data = nom_comps(
             df[x],
             first_rows,
-            ngroups,
-            largest,
-            bins,
-            top_words,
-            stopword,
-            lemmatize,
-            stem,
+            cfg
         )
         (data,) = dask.compute(data)
 
@@ -149,13 +147,7 @@ def compute_univariate(
 def nom_comps(
     srs: dd.Series,
     first_rows: pd.Series,
-    ngroups: int,
-    largest: bool,
-    bins: int,
-    top_words: int,
-    stopword: bool,
-    lemmatize: bool,
-    stem: bool,
+    cfg: Config
 ) -> Dict[str, Any]:
     """
     This function aggregates all of the computations required for plot(df, Nominal())
@@ -169,8 +161,6 @@ def nom_comps(
     largest
         If true, show the groups with the largest count,
         else show the groups with the smallest count
-    bins
-        number of bins for the category length frequency histogram
     top_words
         Number of highest frequency words to show in the
         wordcloud and word frequency bar chart
@@ -182,6 +172,8 @@ def nom_comps(
     stem
         If True, extract the stem of the words before
         computing the word frequencies, else don't
+    cfg: 
+        Config instance created by config and display that user passed in.
     """  # pylint: disable=too-many-arguments
 
     data: Dict[str, Any] = {}
@@ -197,11 +189,11 @@ def nom_comps(
     # total number of groups
     data["nuniq"] = grps.shape[0]
     # select the largest or smallest groups
-    data["bar"] = grps.nlargest(ngroups) if largest else grps.nsmallest(ngroups)
-    ##     if cfg.barchart_bars == cfg.piechart_slices:
-    data["pie"] = data["bar"]
-    ##     else
-    ##     data["pie"] = grps.nlargest(ngroups) if largest else grps.nsmallest(ngroups)
+    data["bar"] = grps.nlargest(cfg.bar.bars) if cfg.bar.sort_descending else grps.nsmallest(cfg.bar.bars)
+    if cfg.bar.bars == cfg.pie.slices:
+        data["pie"] = data["bar"]
+    else:
+        data["pie"] = grps.nlargest(cfg.pie.slices) if cfg.pie.sort_descending else grps.nsmallest(cfg.pie.slices)
     ##     if cfg.insights.evenness_enable
     data["chisq"] = chisquare(grps.values)
 
@@ -211,9 +203,23 @@ def nom_comps(
     if not first_rows.apply(lambda x: isinstance(x, str)).all():
         srs = srs.astype(str)  # srs must be a string to compute the value lengths
         df[df.columns[0]] = df[df.columns[0]].astype(str)
-    data.update(calc_cat_stats(srs, df, bins, data["nrows"], data["nuniq"]))
+    data.update(calc_cat_stats(srs, df, cfg.wordlength.bins, data["nrows"], data["nuniq"]))
     # ## if cfg.word_freq_enable
-    data.update(calc_word_freq(df, top_words, stopword, lemmatize, stem))
+    if cfg.wordcloud.top_words == cfg.wordfrequency.top_words and cfg.wordcloud.stopword == cfg.wordfrequency.stopword and cfg.wordcloud.stem == cfg.wordfrequency.stem and cfg.wordcloud.lemmatize == cfg.wordfrequency.lemmatize:
+        word_freqs = calc_word_freq(df, cfg.wordfrequency.top_words, cfg.wordfrequency.stopword, cfg.wordfrequency.lemmatize, cfg.wordfrequency.stem)
+        data["word_cnts_freq"] = word_freqs["word_cnts"]
+        data["word_cnts_cloud"] = word_freqs["word_cnts"]
+        data["nwords"] = word_freqs["nwords"]
+        data["nuniq_words"] = word_freqs["nuniq_words"]
+    else:
+        word_freqs = calc_word_freq(df, cfg.wordfrequency.top_words, cfg.wordfrequency.stopword, cfg.wordfrequency.lemmatize, cfg.wordfrequency.stem)
+        word_freqs_cloud = calc_word_freq(df, cfg.wordfrequency.top_words, cfg.wordfrequency.stopword, cfg.wordfrequency.lemmatize, cfg.wordfrequency.stem)
+        # word_freqs_cloud = calc_word_freq(df, cfg.wordcloud.top_words, cfg.wordcloud.stopword, cfg.wordcloud.lemmatize, cfg.wordcloud.stem)
+        data["word_cnts_freq"] = word_freqs["word_cnts"]
+        data["nwords"] = word_freqs["nwords"]
+        data["nuniq_words"] = word_freqs["nuniq_words"]
+        # data["word_cnts_cloud"] = word_freqs["word_cnts"]
+        data["word_cnts_cloud"] = word_freqs_cloud["word_cnts"]
 
     return data
 
@@ -318,10 +324,10 @@ def calc_box(srs: dd.Series, qntls: da.Array) -> Dict[str, Any]:
 
 def calc_word_freq(
     df: dd.DataFrame,
-    top_words: int = 30,
-    stopword: bool = True,
-    lemmatize: bool = False,
-    stem: bool = False,
+    top_words: int,
+    stopword: bool,
+    lemmatize: bool,
+    stem: bool,
 ) -> Dict[str, Any]:
     """
     Parse a categorical column of text data into words, and then
@@ -352,6 +358,7 @@ def calc_word_freq(
         df[col] = df[col].str.replace(r"[^\w+ ]", "")
     # convert to lowercase and split
     df[col] = df[col].str.lower().str.split()
+
     # "explode()" to "stack" all the words in a list into a new column
     df = df.explode(col)
 
@@ -394,7 +401,7 @@ def calc_cat_stats(
     df
         groupby-count on the categorical column as a dataframe
     bins
-        number of bins for the category length frequency histogram
+        number of bins for the word length frequency histogram
     nrows
         number of rows before dropping null values
     nuniq

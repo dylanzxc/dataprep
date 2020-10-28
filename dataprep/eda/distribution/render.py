@@ -32,6 +32,7 @@ from wordcloud import WordCloud
 from ..dtypes import Continuous, DateTime, Nominal, is_dtype
 from ..intermediate import Intermediate
 from ..palette import CATEGORY20, PASTEL1, RDBU, VIRIDIS
+from ..basic.configs import Config
 
 __all__ = ["render"]
 
@@ -1494,13 +1495,14 @@ def render_cat(
     tabs.append(Panel(child=row(fig), title="Bar Chart"))
     tabs.append(pie_viz(pie, nrows, col, plot_width, plot_height))
     # word counts and total number of words for the wordcloud and word frequencies bar chart
-    word_cnts, nwords, = (
-        data["word_cnts"],
+    word_cnts_freq, word_cnts_cloud, nwords, = (
+        data["word_cnts_freq"],
+        data["word_cnts_cloud"],
         data["nwords"],
     )
     if nwords > 0:
-        tabs.append(wordcloud_viz(word_cnts, plot_width, plot_height))
-        tabs.append(wordfreq_viz(word_cnts, nwords, plot_width, plot_height, True))
+        tabs.append(wordcloud_viz(word_cnts_cloud, plot_width, plot_height))
+        tabs.append(wordfreq_viz(word_cnts_freq, nwords, plot_width, plot_height, True))
     # word length histogram
     length_dist = hist_viz(
         data["len_hist"], nrows, "Word Length", yscale, plot_width, plot_height, True
@@ -1553,7 +1555,7 @@ def nom_insights(data: Dict[str, Any], col: str) -> Dict[str, List[str]]:
     if data["stats"]["nuniq"] == data["stats"]["npres"]:
         ins["Stats"].append(f"{col} has all distinct values")
 
-    ## if cfg.insight.evenness_enable:
+    ## if cfg.insight.uniform_enable:
     if data["chisq"][1] > 0.999:  ## cfg.insight.uniform_threshold
         ins["Bar Chart"].append(f"{col} is relatively evenly distributed")
 
@@ -1568,7 +1570,7 @@ def nom_insights(data: Dict[str, Any], col: str) -> Dict[str, List[str]]:
     ## if cfg.insight.attribution_enable
     if data["pie"][:2].sum() / data["nrows"] > 0.5 and len(data["pie"]) >= 2:
         vals = ", ".join(str(data["pie"].index[i]) for i in range(2))
-        ins["Pie Chart"].append(f"The top 2 categories ({vals}) take over 50%")
+        ins["Pie Chart"].append(f"The top 2 categories ({vals}) take over {0.5*100}%")
 
     ## if cfg.insight.high_word_cardinlaity_enable
     if data["nwords"] > 1000:
@@ -1576,9 +1578,9 @@ def nom_insights(data: Dict[str, Any], col: str) -> Dict[str, List[str]]:
         ins["Word Cloud"].append(f"{col} contains many words: {nwords} words")
 
     ## if cfg.insight.outstanding_no1_word_enable
-    factor = data["word_cnts"][0] / data["word_cnts"][1] if len(data["word_cnts"]) > 1 else 0
+    factor = data["word_cnts_cloud"][0] / data["word_cnts_cloud"][1] if len(data["word_cnts_cloud"]) > 1 else 0
     if factor > 1.5:
-        val1, val2 = data["word_cnts"].index[0], data["word_cnts"].index[1]
+        val1, val2 = data["word_cnts_cloud"].index[0], data["word_cnts_cloud"].index[1]
         ins["Word Frequencies"].append(
             f"The largest value ({val1}) is over {factor} times larger than the second largest value ({val2})"
         )
@@ -1965,6 +1967,7 @@ def render(
     plot_width_lrg: int = 450,
     plot_height_lrg: int = 400,
     plot_width_wide: int = 972,
+    cfg: Config = None
 ) -> Union[LayoutDOM, Dict[str, Any]]:
     """
     Render a basic plot

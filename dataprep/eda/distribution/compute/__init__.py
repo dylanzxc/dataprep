@@ -12,6 +12,7 @@ from .bivariate import compute_bivariate
 from .overview import compute_overview
 from .trivariate import compute_trivariate
 from .univariate import compute_univariate
+from ...basic.configs import Config
 
 __all__ = ["compute"]
 
@@ -35,6 +36,7 @@ def compute(
     stem: bool = False,
     value_range: Optional[Tuple[float, float]] = None,
     dtype: Optional[DTypeDef] = None,
+    cfg: Config = "auto"
 ) -> Intermediate:
     """All in one compute function.
 
@@ -92,13 +94,14 @@ def compute(
         E.g.  dtype = {"a": Continuous, "b": "Nominal"} or
         dtype = {"a": Continuous(), "b": "nominal"}
         or dtype = Continuous() or dtype = "Continuous" or dtype = Continuous()
+    cfg: Config instance created by config and display that user passed in.
     """  # pylint: disable=too-many-locals
     df = to_dask(df)
     df.columns = df.columns.astype(str)
     df = string_dtype_to_object(df)
 
     if not any((x, y, z)):
-        return compute_overview(df, bins, ngroups, largest, timeunit, dtype)
+        return compute_overview(df, dtype, cfg)
 
     if sum(v is None for v in (x, y, z)) == 2:
         col: str = cast(str, x or y or z)
@@ -110,6 +113,7 @@ def compute(
             largest,
             timeunit,
             top_words,
+            cfg,
             stopword,
             lemmatize,
             stem,
