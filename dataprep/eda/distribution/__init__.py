@@ -2,7 +2,7 @@
 This module implements the plot(df) function.
 """
 
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, List, Dict, Any
 
 import dask.dataframe as dd
 import pandas as pd
@@ -12,6 +12,7 @@ from ..dtypes import DTypeDef
 from ..progress_bar import ProgressBar
 from .compute import compute
 from .render import render
+from ..basic.configs import Config
 
 __all__ = ["plot", "compute", "render"]
 
@@ -22,22 +23,13 @@ def plot(
     y: Optional[str] = None,
     z: Optional[str] = None,
     *,
-    bins: int = 50,
-    ngroups: int = 20,
-    largest: bool = True,
-    nsubgroups: int = 5,
-    timeunit: str = "auto",
-    agg: str = "mean",
-    sample_size: int = 1000,
-    top_words: int = 30,
-    stopword: bool = True,
-    lemmatize: bool = False,
-    stem: bool = False,
     value_range: Optional[Tuple[float, float]] = None,
     yscale: str = "linear",
     tile_size: Optional[float] = None,
     dtype: Optional[DTypeDef] = None,
     progress: bool = True,
+    config: Union[Dict[str, Any], str] = "auto",
+    display: Union[List[str], str] = "auto",
 ) -> Container:
     """Generates plots for exploratory data analysis.
 
@@ -83,43 +75,7 @@ def plot(
         A valid column name from the dataframe
     z: Optional[str], default None
         A valid column name from the dataframe
-    bins: int, default 10
-        For a histogram or box plot with numerical x axis, it defines
-        the number of equal-width bins to use when grouping.
-    ngroups: int, default 10
-        When grouping over a categorical column, it defines the
-        number of groups to show in the plot. Ie, the number of
-        bars to show in a bar chart.
-    largest: bool, default True
-        If true, when grouping over a categorical column, the groups
-        with the largest count will be output. If false, the groups
-        with the smallest count will be output.
-    nsubgroups: int, default 5
-        If x and y are categorical columns, ngroups refers to
-        how many groups to show from column x, and nsubgroups refers to
-        how many subgroups to show from column y in each group in column x.
-    timeunit: str, default "auto"
-        Defines the time unit to group values over for a datetime column.
-        It can be "year", "quarter", "month", "week", "day", "hour",
-        "minute", or "second". With default value "auto", it will use the
-        time unit such that the resulting number of groups is closest to 15.
-    agg: str, default "mean"
-        Specify the aggregate to use when aggregating over a numerical
-        column
-    sample_size: int, default 1000
-        Sample size for the scatter plot
-    top_words: int, default 30
-        Specify the amount of words to show in the wordcloud and
-        word frequency bar chart
-    stopword: bool, default True
-        Eliminate the stopwords in the text data for plotting wordcloud and
-        word frequency bar chart
-    lemmatize: bool, default False
-        Lemmatize the words in the text data for plotting wordcloud and
-        word frequency bar chart
-    stem: bool, default False
-        Apply Potter Stem on the text data for plotting wordcloud and
-        word frequency bar chart
+
     value_range: Optional[Tuple[float, float]], default None
         The lower and upper bounds on the range of a numerical column.
         Applies when column x is specified and column y is unspecified.
@@ -132,10 +88,16 @@ def plot(
         Specify Data Types for designated column or all columns.
         E.g.  dtype = {"a": Continuous, "b": "Nominal"} or
         dtype = {"a": Continuous(), "b": "nominal"}
-        or dtype = Continuous() or dtype = "Continuous" or dtype = Continuous()
+        or dtype = Continuous() or dtype = "Continuous" or dtype = Continuous().
     progress
         Enable the progress bar.
-
+    config
+        The config dict user passed in. E.g. config =  {"hist.bins": 20}
+        Without user's specifications, the default is "auto"
+    display
+        The list that contains the names of plots user wants to display,
+        E.g. display =  ["bar", "hist"]
+        Without user's specifications, the default is "auto"
     Examples
     --------
     >>> import pandas as pd
@@ -146,26 +108,8 @@ def plot(
     >>> plot(iris, "petal_width", "species")
     """
     # pylint: disable=too-many-locals,line-too-long
-
+    cfg = Config.from_dict(display, config)
     with ProgressBar(minimum=1, disable=not progress):
-        intermediate = compute(
-            df,
-            x=x,
-            y=y,
-            z=z,
-            bins=bins,
-            ngroups=ngroups,
-            largest=largest,
-            nsubgroups=nsubgroups,
-            timeunit=timeunit.lower(),
-            agg=agg,
-            sample_size=sample_size,
-            top_words=top_words,
-            stopword=stopword,
-            lemmatize=lemmatize,
-            stem=stem,
-            value_range=value_range,
-            dtype=dtype,
-        )
-    to_render = render(intermediate, yscale=yscale, tile_size=tile_size)
-    return Container(to_render, intermediate.visual_type)
+        intermediate = compute(df, x=x, y=y, z=z, value_range=value_range, dtype=dtype, cfg=cfg)
+    to_render = render(intermediate, yscale=yscale, tile_size=tile_size, cfg=cfg)
+    return Container(to_render, intermediate.visual_type, cfg)

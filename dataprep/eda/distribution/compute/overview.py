@@ -23,15 +23,13 @@ from ...dtypes import (
 )
 from ...intermediate import Intermediate
 from .common import _calc_line_dt, ks_2samp, normaltest, skewtest
+from ...basic.configs import Config
+
+# pylint: disable=protected-access
 
 
 def compute_overview(
-    df: dd.DataFrame,
-    bins: int,
-    ngroups: int,
-    largest: bool,
-    timeunit: str,
-    dtype: Optional[DTypeDef] = None,
+    df: dd.DataFrame, cfg: Config, dtype: Optional[DTypeDef] = None
 ) -> Intermediate:
     # pylint: disable=too-many-arguments,too-many-locals,too-many-branches
 
@@ -41,53 +39,40 @@ def compute_overview(
     ----------
     df
         Dataframe from which plots are to be generated
-    bins
-        For a histogram or box plot with numerical x axis, it defines
-        the number of equal-width bins to use when grouping.
-    ngroups
-        When grouping over a categorical column, it defines the
-        number of groups to show in the plot. Ie, the number of
-        bars to show in a bar chart.
-    largest
-        If true, when grouping over a categorical column, the groups
-        with the largest count will be output. If false, the groups
-        with the smallest count will be output.
-    timeunit
-        Defines the time unit to group values over for a datetime column.
-        It can be "year", "quarter", "month", "week", "day", "hour",
-        "minute", "second". With default value "auto", it will use the
-        time unit such that the resulting number of groups is closest to 15.
     dtype: str or DType or dict of str or dict of DType, default None
         Specify Data Types for designated column or all columns.
         E.g.  dtype = {"a": Continuous, "b": "Nominal"} or
         dtype = {"a": Continuous(), "b": "nominal"}
         or dtype = Continuous() or dtype = "Continuous" or dtype = Continuous()
+    cfg:
+        Config instance created using config and display that user passed in.
+
     """
     # extract the first rows for checking if a column contains a mutable type
     first_rows: pd.DataFrame = df.head()  # dd.DataFrame.head triggers a (small) data read
-
     datas: List[Any] = []
     col_names_dtypes: List[Tuple[str, DType]] = []
-
     for col in df.columns:
         srs = df[col]
         col_dtype = detect_dtype(srs, dtype)
         if is_dtype(col_dtype, Nominal()):
-            ## if cfg.barchart_enable or cfg.any_insights("barchart"):
-            # cast the column as string type if it contains a mutable type
-            try:
-                first_rows[col].apply(hash)
-            except TypeError:
-                srs = df[col] = srs.astype(str)
-            datas.append(calc_nom_col(srs.dropna(), first_rows[col], ngroups, largest))
-            col_names_dtypes.append((col, Nominal()))
+            if cfg.bar._enable:
+                # cast the column as string type if it contains a mutable type
+                try:
+                    first_rows[col].apply(hash)
+                except TypeError:
+                    srs = df[col] = srs.astype(str)
+                datas.append(calc_nom_col(srs.dropna(), first_rows[col], cfg))
+                col_names_dtypes.append((col, Nominal()))
         elif is_dtype(col_dtype, Continuous()):
-            ## if cfg.hist_enable or cfg.any_insights("hist"):
-            datas.append(calc_cont_col(srs.dropna(), bins))
-            col_names_dtypes.append((col, Continuous()))
+            if cfg.hist._enable:
+                ## if cfg.hist_enable or cfg.any_insights("hist"):
+                datas.append(calc_cont_col(srs.dropna(), cfg))
+                col_names_dtypes.append((col, Continuous()))
         elif is_dtype(col_dtype, DateTime()):
-            datas.append(dask.delayed(_calc_line_dt)(df[[col]], timeunit))
-            col_names_dtypes.append((col, DateTime()))
+            if cfg.line._enable:
+                datas.append(dask.delayed(_calc_line_dt)(df[[col]], cfg.line.unit))
+                col_names_dtypes.append((col, DateTime()))
         else:
             raise UnreachableError
 
@@ -97,36 +82,43 @@ def compute_overview(
     # extract the plotting data, and detect and format the insights
     plot_data: List[Any] = []
     col_insights: Dict[str, List[str]] = {}
-    ov_insights = format_overview(ov_stats)
+    ov_insights = format_overview(ov_stats, cfg)
     nrows = ov_stats["nrows"]
     for (col, dtp), dat in zip(col_names_dtypes, datas):
         if is_dtype(dtp, Continuous()):
-            hist, col_ins, ov_ins = format_cont(col, dat, nrows)
-            if hist:
+            if cfg.insight._enable and cfg.hist._enable:
+                col_ins, ov_ins = format_cont(col, dat, nrows, cfg)
+            if cfg.hist._enable:
+                hist = dat["hist"]
                 plot_data.append((col, dtp, hist))
-        elif is_dtype(dtp, Nominal()):
-            bardata, col_ins, ov_ins = format_nom(col, dat, nrows)
-            if bardata:
+        elif is_dtype(dtp, Nominal()) and cfg.bar._enable:
+            if cfg.insight._enable and cfg.bar._enable:
+                col_ins, ov_ins = format_nom(col, dat, nrows, cfg)
+            if cfg.bar._enable:
+                bardata = (
+                    dat["bar"].to_frame(),
+                    dat["nuniq"],
+                )
                 plot_data.append((col, dtp, bardata))
-        elif is_dtype(dtp, DateTime()):
+        elif is_dtype(dtp, DateTime()) and cfg.line._enable:
             plot_data.append((col, dtp, dat))
             continue
-        if col_ins:
-            col_insights[col] = col_ins
-        ov_insights += ov_ins
+        if cfg.insight._enable:
+            if col_ins:
+                col_insights[col] = col_ins
+            ov_insights += ov_ins
 
     return Intermediate(
         data=plot_data,
         stats=ov_stats,
         column_insights=col_insights,
         overview_insights=_insight_pagination(ov_insights),
-        ov_insights=ov_insights,
         visual_type="distribution_grid",
     )
 
 
 ## def calc_cont_col(srs: dd.Series, cfg: Config)
-def calc_cont_col(srs: dd.Series, bins: int) -> Dict[str, Any]:
+def calc_cont_col(srs: dd.Series, cfg: Config) -> Dict[str, Any]:
     """
     Computations for a numerical column in plot(df)
 
@@ -134,8 +126,8 @@ def calc_cont_col(srs: dd.Series, bins: int) -> Dict[str, Any]:
     ----------
     srs
         srs over which to compute the barchart and insights
-    bins
-        number of bins in the bar chart
+    cfg
+        Config instance created using config and display that user passed in.
     """
     # dictionary of data for the histogram and related insights
     data: Dict[str, Any] = {}
@@ -152,7 +144,7 @@ def calc_cont_col(srs: dd.Series, bins: int) -> Dict[str, Any]:
 
     ## if cfg.hist_enable or config.insight.uniform_enable or cfg.insight.normal_enable:
     ## bins = cfg.hist_bins
-    data["hist"] = da.histogram(srs, bins=bins, range=[srs.min(), srs.max()])
+    data["hist"] = da.histogram(srs, bins=cfg.hist.bins, range=[srs.min(), srs.max()])
 
     ## if cfg.insight.uniform_enable:
     data["chisq"] = chisquare(data["hist"][0])
@@ -176,9 +168,7 @@ def calc_cont_col(srs: dd.Series, bins: int) -> Dict[str, Any]:
 
 
 ## def calc_nom_col(srs: dd.Series, first_rows: pd.Series, cfg: Config)
-def calc_nom_col(
-    srs: dd.Series, first_rows: pd.Series, ngroups: int, largest: bool
-) -> Dict[str, Any]:
+def calc_nom_col(srs: dd.Series, first_rows: pd.Series, cfg: Config) -> Dict[str, Any]:
     """
     Computations for a categorical column in plot(df)
 
@@ -188,10 +178,9 @@ def calc_nom_col(
         srs over which to compute the barchart and insights
     first_rows
         first rows of the dataset read into memory
-    ngroups
-        number of groups to show in the barchart
-    largest
-        whether to show the largest or smallest groups
+    cfg
+        Config instance created using config and display that user passed in.
+
     """
     # dictionary of data for the bar chart and related insights
     data = {}
@@ -203,7 +192,9 @@ def calc_nom_col(
     ##       nbars = cfg.barchart_nbars
     ##       largest = cfg.barchart_largest
     # select the largest or smallest groups
-    data["bar"] = grps.nlargest(ngroups) if largest else grps.nsmallest(ngroups)
+    data["bar"] = (
+        grps.nlargest(cfg.bar.bars) if cfg.bar.sort_descending else grps.nsmallest(cfg.bar.bars)
+    )
 
     ##    if cfg.insight.uniform_enable:
     # compute a chi-squared test on the frequency distribution
@@ -263,13 +254,13 @@ def calc_stats(df: dd.DataFrame, dtype: Optional[DTypeDef]) -> Dict[str, Any]:
     df_smp = df.map_partitions(lambda x: x.sample(min(1000, x.shape[0])), meta=df)
     stats["ks_tests"] = []
     for col1, col2 in list(combinations(num_cols, 2)):
-        stats["ks_tests"].append((col1, col2, ks_2samp(df_smp[col1], df_smp[col2])[1] > 0.05))
+        stats["ks_tests"].append((col1, col2, ks_2samp(df_smp[col1], df_smp[col2])[1]))
 
     return stats
 
 
 ## def format_overview(data: Dict[str, Any], cfg: Config)
-def format_overview(data: Dict[str, Any]) -> List[Dict[str, str]]:
+def format_overview(data: Dict[str, Any], cfg: Config) -> List[Dict[str, str]]:
     """
     Determine and format the overview statistics and insights from plot(df)
 
@@ -277,19 +268,21 @@ def format_overview(data: Dict[str, Any]) -> List[Dict[str, str]]:
     ----------
     data
         dictionary with overview statistics
+    cfg
+        Config instance created using config and display that user passed in.
     """
     # list of insights
     ins: List[Dict[str, str]] = []
 
     ## if cfg.insight.duplicates_enable
     pdup = round((1 - data["nrows_wo_dups"] / data["nrows"]) * 100, 2)
-    if pdup > 1:  ## if cfg.insight.duplicates_threshold
+    if pdup > cfg.insight.duplicates__threshold:
         ndup = data["nrows"] - data["nrows_wo_dups"]
         ins.append({"Duplicates": f"Dataset has {ndup} ({pdup}%) duplicate rows"})
 
     ## if cfg.insight.similar_distribution_enable
     for (*cols, test_result) in data.get("ks_tests", []):
-        if test_result:
+        if test_result > cfg.insight.similar_distribution__threshold:
             msg = f"{cols[0]} and {cols[1]} have similar distributions"
             ins.append({"Similar Distribution": msg})
 
@@ -299,7 +292,7 @@ def format_overview(data: Dict[str, Any]) -> List[Dict[str, str]]:
 
 
 ## def format_cont(col: str, data: Dict[str, Any], nrows: int, cfg: Config)
-def format_cont(col: str, data: Dict[str, Any], nrows: int) -> Any:
+def format_cont(col: str, data: Dict[str, Any], nrows: int, cfg: Config) -> Any:
     """
     Determine and format the insights for a numerical column
 
@@ -311,55 +304,58 @@ def format_cont(col: str, data: Dict[str, Any], nrows: int) -> Any:
         dictionary with overview statistics
     nrows
         number of rows in the dataset
+    cfg
+        Config instance created using config and display that user passed in
     """
     # list of insights
     ins: List[Dict[str, str]] = []
 
     ## if cfg.insight.uniform_enable:
-    if data["chisq"][1] > 0.999:  ## cfg.insight.uniform_threshold
+    if data["chisq"][1] > cfg.insight.uniform__threshold:
         ins.append({"Uniform": f"{col} is uniformly distributed"})
 
     ## if cfg.insight.missing_enable:
     pmiss = round((1 - (data["npres"] / nrows)) * 100, 2)
-    if pmiss > 1:  ## cfg.insight.missing_threshold
+    if pmiss > cfg.insight.missing__threshold:
         nmiss = nrows - data["npres"]
         ins.append({"Missing": f"{col} has {nmiss} ({pmiss}%) missing values"})
 
     ## if cfg.insight.skewed_enable:
-    if data["skew"][1] < 1e-5:  ## cfg.insight.skewed_threshold
+    if data["skew"][1] < cfg.insight.skewed__threshold:
         ins.append({"Skewed": f"{col} is skewed"})
 
     ## if cfg.insight.infinity_enable:
     pinf = round(data["ninf"] / nrows * 100, 2)
-    if pinf >= 1:  ## cfg.insight.infinity_threshold
+    if pinf >= cfg.insight.infinity__threshold:
         ninf = data["ninf"]
         ins.append({"Infinity": f"{col} has {ninf} ({pinf}%) infinite values"})
 
     ## if cfg.insight.zeros_enable:
     pzero = round(data["nzero"] / nrows * 100, 2)
-    if pzero > 5:  ## cfg.insight.zeros_threshold
+    if pzero > cfg.insight.zeros__threshold:
         nzero = data["nzero"]
         ins.append({"Zeros": f"{col} has {nzero} ({pzero}%) zeros"})
 
     ## if cfg.insight.negatives_enable:
     pneg = round(data["nneg"] / nrows * 100, 2)
-    if pneg > 1:  ## cfg.insight.negatives_threshold
+    if pneg > cfg.insight.negatives__threshold:
         nneg = data["nneg"]
         ins.append({"Negatives": f"{col} has {nneg} ({pneg}%) negatives"})
 
     ## if cfg.insight.normal_enable:
-    if data["norm"][1] > 0.99:
+    if data["norm"][1] > cfg.insight.normal__threshold:
         ins.append({"Normal": f"{col} is normally distributed"})
 
-    hist = data["hist"]  ## if cfg.hist_enable else None
+    # hist = data["hist"]  ## if cfg.hist_enable else None
     # list of insight messages
     ins_msg_list = [list(insight.values())[0] for insight in ins]
 
-    return hist, ins_msg_list, ins
+    # return hist, ins_msg_list, ins
+    return ins_msg_list, ins
 
 
 ## def format_nom(col: str, data: Dict[str, Any], nrows: int, cfg: Config)
-def format_nom(col: str, data: Dict[str, Any], nrows: int) -> Any:
+def format_nom(col: str, data: Dict[str, Any], nrows: int, cfg: Config) -> Any:
     """
     Determine and format the insights for a categorical column
 
@@ -371,48 +367,45 @@ def format_nom(col: str, data: Dict[str, Any], nrows: int) -> Any:
         dictionary with overview statistics
     nrows
         number of rows in the dataset
+    cfg
+        Config instance created using config and display that user passed in
     """
     # list of insights
     ins: List[Dict[str, str]] = []
 
-    ## if cfg.insight.uniform_enable:
-    if data["chisq"][1] > 0.999:  ## cfg.insight.uniform_threshold
+    if data["chisq"][1] > cfg.insight.uniform__threshold:
         ins.append({"Uniform": f"{col} is uniformly distributed"})
 
-    ## if cfg.insight.missing_enable:
     pmiss = round((1 - (data["npres"] / nrows)) * 100, 2)
-    if pmiss > 1:  ## cfg.insight.missing_threshold
+    if pmiss > cfg.insight.missing__threshold:
         nmiss = nrows - data["npres"]
         ins.append({"Missing": f"{col} has {nmiss} ({pmiss}%) missing values"})
 
-    ## if cfg.insight.high_cardinality_enable:
-    if data["nuniq"] > 50:  ## cfg.insght.high_cardinality_threshold
+    if data["nuniq"] > cfg.insight.high_cardinality__threshold:
         uniq = data["nuniq"]
         msg = f"{col} has a high cardinality: {uniq} distinct values"
         ins.append({"High Cardinality": msg})
 
-    ## if cfg.insight.constant_enable:
-    if data["nuniq"] == 1:
+    if data["nuniq"] == cfg.insight.constant__threshold:
         val = data["bar"].index[0]
         ins.append({"Constant": f'{col} has constant value "{val}"'})
 
-    ## if cfg.insight.constant_length_enable:
     if data["min_len"] == data["max_len"]:
         length = data["min_len"]
         ins.append({"Constant Length": f"{col} has constant length {length}"})
 
-    ## if cfg.insight.constant_length_enable:
     if data["nuniq"] == data["npres"]:
         ins.append({"Unique": f"{col} has all distinct values"})
 
-    bardata = (
-        data["bar"].to_frame(),
-        data["nuniq"],
-    )  ## if cfg.barchart.enable else None
+    # bardata = (
+    #     data["bar"].to_frame(),
+    #     data["nuniq"],
+    # )  ## if cfg.barchart.enable else None
     # list of insight messages
     ins_msg_list = [list(ins.values())[0] for ins in ins]
 
-    return bardata, ins_msg_list, ins
+    # return bardata, ins_msg_list, ins
+    return ins_msg_list, ins
 
 
 def _insight_pagination(ins: List[Dict[str, str]]) -> Dict[int, List[Dict[str, str]]]:

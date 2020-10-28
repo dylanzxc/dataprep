@@ -2,7 +2,7 @@
     This module implements the plot_correlation(df) function.
 """
 
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, Dict, List, Any
 
 import dask.dataframe as dd
 import pandas as pd
@@ -11,6 +11,7 @@ from ..progress_bar import ProgressBar
 from .compute import compute_correlation
 from .render import render_correlation
 from ..container import Container
+from ..basic.configs import Config
 
 __all__ = ["render_correlation", "compute_correlation", "plot_correlation"]
 
@@ -23,6 +24,8 @@ def plot_correlation(
     value_range: Optional[Tuple[float, float]] = None,
     k: Optional[int] = None,
     progress: bool = True,
+    config: Union[Dict[str, Any], str] = "auto",
+    display: Union[List[str], str] = "auto",
 ) -> Container:
     """
     This function is designed to calculate the correlation between columns
@@ -44,7 +47,13 @@ def plot_correlation(
         Choose top-k element.
     progress
         Enable the progress bar.
-
+    config
+        The config dict user passed in. E.g. config =  {"hist.bins": 20}
+        Without user's specifications, the default is "auto"
+    display
+        The list that contains the names of plots user wants to display,
+        E.g. display =  ["bar", "hist"]
+        Without user's specifications, the default is "auto"
     Examples
     --------
     >>> from dataprep.eda.correlation.computation import plot_correlation
@@ -64,8 +73,9 @@ def plot_correlation(
     This function only supports numerical or categorical data,
     and it is better to drop None, Nan and Null value before using it
     """
+    cfg = Config.from_dict(display, config)
     with ProgressBar(minimum=1, disable=not progress):
         itmdt = compute_correlation(df, x=x, y=y, value_range=value_range, k=k)
     to_render = render_correlation(itmdt)
 
-    return Container(to_render, itmdt.visual_type)
+    return Container(to_render, itmdt.visual_type, cfg=cfg)

@@ -7,13 +7,14 @@
 </head>
 
 <body>
-    {% if context.tabledata %}
+    {% if context.tabledata or context.overview_insights%}
     <div class="top-info-{{ context.rnd }}">
         <input type='checkbox' style='display: none' id="tb-{{ context.rnd }}">
         <label class="toggle-label-{{ context.rnd }}" for="tb-{{ context.rnd }}">
-            Stats and Insights
+            {{ context.toggle_content }}
         </label>
         <div class="stats-{{ context.rnd }}">
+            {% if context.tabledata%}
             <div class="tabledata-{{ context.rnd }}">
                 <div>
                     <h3>Dataset Statistics</h3>
@@ -37,6 +38,8 @@
                     </table>
                 </div>
             </div>
+            {% endif %}
+            {% if context.overview_insights %}
             <div class="insights-{{ context.rnd }}">
                 {% for page, content in context.overview_insights.items() %}
                 <div class="page-box-{{ context.rnd }}" id="page-{{ context.rnd }}-{{ loop.index }}">
@@ -57,7 +60,9 @@
                 </div>
                 {% endfor %}
             </div>
+            {% endif %}
         </div>
+        {% if context.overview_insights %}
         <div class="page-switch-box-{{ context.rnd }}">
             <ul class="page-switch-{{ context.rnd }}">
                 {% for _ in context.overview_insights %}
@@ -67,6 +72,7 @@
                 {% endfor %}
             </ul>
         </div>
+        {% endif %}
     </div>
     {% endif %}
     {% if context.legend_labels %}

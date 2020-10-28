@@ -31,15 +31,15 @@ from wordcloud import WordCloud
 from ..dtypes import Continuous, DateTime, Nominal, is_dtype
 from ..intermediate import Intermediate
 from ..palette import CATEGORY20, PASTEL1, RDBU, VIRIDIS
+from ..basic.configs import Config
+
+# pylint: disable=protected-access
 
 __all__ = ["render"]
 
 
 def tweak_figure(
-    fig: Figure,
-    ptype: Optional[str] = None,
-    show_yticks: bool = False,
-    max_lbl_len: int = 15,
+    fig: Figure, ptype: Optional[str] = None, show_yticks: bool = False, max_lbl_len: int = 15,
 ) -> None:
     """
     Set some common attributes for a figure
@@ -235,11 +235,7 @@ def _empty_figure(title: str, plot_height: int, plot_width: int) -> Figure:
     return fig
 
 
-def wordcloud_viz(
-    word_cnts: pd.Series,
-    plot_width: int,
-    plot_height: int,
-) -> Panel:
+def wordcloud_viz(word_cnts: pd.Series, plot_width: int, plot_height: int,) -> Panel:
     """
     Visualize the word cloud
     """  # pylint: disable=unsubscriptable-object
@@ -271,11 +267,7 @@ def wordcloud_viz(
 
 
 def wordfreq_viz(
-    word_cnts: pd.Series,
-    nrows: int,
-    plot_width: int,
-    plot_height: int,
-    show_yticks: bool,
+    word_cnts: pd.Series, nrows: int, plot_width: int, plot_height: int, show_yticks: bool,
 ) -> Figure:
     """
     Visualize the word frequency bar chart
@@ -347,13 +339,7 @@ def bar_viz(
     return fig
 
 
-def pie_viz(
-    df: pd.DataFrame,
-    nrows: int,
-    col: str,
-    plot_width: int,
-    plot_height: int,
-) -> Panel:
+def pie_viz(df: pd.DataFrame, nrows: int, col: str, plot_width: int, plot_height: int,) -> Panel:
     """
     Render a pie chart
     """
@@ -469,14 +455,7 @@ def kde_viz(
     # pylint: disable=too-many-arguments, too-many-locals
     dens, bins = hist
     intvls = _format_bin_intervals(bins)
-    df = pd.DataFrame(
-        {
-            "intvl": intvls,
-            "left": bins[:-1],
-            "right": bins[1:],
-            "dens": dens,
-        }
-    )
+    df = pd.DataFrame({"intvl": intvls, "left": bins[:-1], "right": bins[1:], "dens": dens,})
     fig = Figure(
         plot_width=plot_width,
         plot_height=plot_height,
@@ -495,9 +474,7 @@ def kde_viz(
         fill_color="#6baed6",
     )
     hover_hist = HoverTool(
-        renderers=[hist],
-        tooltips=[("Bin", "@intvl"), ("Density", "@dens")],
-        mode="vline",
+        renderers=[hist], tooltips=[("Bin", "@intvl"), ("Density", "@dens")], mode="vline",
     )
     pts_rng = np.linspace(df.loc[0, "left"], df.loc[len(df) - 1, "right"], 1000)
     pdf = kde(pts_rng)
@@ -515,12 +492,7 @@ def kde_viz(
 
 
 def qqnorm_viz(
-    qntls: pd.Series,
-    mean: float,
-    std: float,
-    col: str,
-    plot_width: int,
-    plot_height: int,
+    qntls: pd.Series, mean: float, std: float, col: str, plot_width: int, plot_height: int,
 ) -> Panel:
     """
     Render a qq plot
@@ -537,10 +509,7 @@ def qqnorm_viz(
         tooltips=tooltips,
     )
     fig.circle(
-        x=theory_qntls,
-        y=qntls,
-        size=3,
-        color=CATEGORY20[0],
+        x=theory_qntls, y=qntls, size=3, color=CATEGORY20[0],
     )
     vals = np.concatenate((theory_qntls, qntls))
     fig.line(x=[vals.min(), vals.max()], y=[vals.min(), vals.max()], color="red")
@@ -613,19 +582,9 @@ def box_viz(
     if otlrs:
         gps = [grp for grp, ols in zip(df["grp"], df["otlrs"]) for _ in range(len(ols))]
         circ = fig.circle(
-            x=gps,
-            y=otlrs,
-            size=3,
-            line_color="black",
-            color=CATEGORY20[6],
-            fill_alpha=0.6,
+            x=gps, y=otlrs, size=3, line_color="black", color=CATEGORY20[6], fill_alpha=0.6,
         )
-        fig.add_tools(
-            HoverTool(
-                renderers=[circ],
-                tooltips=[("Outlier", "@y")],
-            )
-        )
+        fig.add_tools(HoverTool(renderers=[circ], tooltips=[("Outlier", "@y")],))
     tooltips = [
         ("Upper Whisker", "@uw"),
         ("Upper Quartile", "@q3"),
@@ -636,12 +595,7 @@ def box_viz(
     if y:
         lbl = f"{x}" if ttl_grps else "Bin"
         tooltips.insert(0, (lbl, "@grp"))
-    fig.add_tools(
-        HoverTool(
-            renderers=[upw, utail, ubox, lbox, ltail, low],
-            tooltips=tooltips,
-        )
-    )
+    fig.add_tools(HoverTool(renderers=[upw, utail, ubox, lbox, ltail, low], tooltips=tooltips,))
     tweak_figure(fig, "box")
     if y is None:
         fig.xaxis.major_tick_line_color = None
@@ -739,12 +693,7 @@ def box_viz_dt(
         circ = fig.circle(  # pylint: disable=too-many-function-args
             outx, outy, size=3, line_color="black", color=CATEGORY20[6], fill_alpha=0.6
         )
-        fig.add_tools(
-            HoverTool(
-                renderers=[circ],
-                tooltips=[("Outlier", "@y")],
-            )
-        )
+        fig.add_tools(HoverTool(renderers=[circ], tooltips=[("Outlier", "@y")],))
     tooltips = [
         ("Upper Whisker", "@uw"),
         ("Upper Quartile", "@q3"),
@@ -805,13 +754,7 @@ def box_viz_dt(
 
 
 def line_viz(
-    df: pd.DataFrame,
-    x: str,
-    y: str,
-    yscale: str,
-    plot_width: int,
-    plot_height: int,
-    ttl_grps: int,
+    df: pd.DataFrame, x: str, y: str, yscale: str, plot_width: int, plot_height: int, ttl_grps: int,
 ) -> Panel:
     """
     Render multi-line chart
@@ -859,12 +802,7 @@ def line_viz(
 
 
 def scatter_viz(
-    df: pd.DataFrame,
-    x: str,
-    y: str,
-    spl_sz: int,
-    plot_width: int,
-    plot_height: int,
+    df: pd.DataFrame, x: str, y: str, spl_sz: int, plot_width: int, plot_height: int,
 ) -> Any:
     """
     Render a scatter plot
@@ -910,11 +848,7 @@ def hexbin_viz(
     title = f"{y} by {x}"
     aspect_scale = (ymax - ymin) / (xmax - xmin + 1e-9)
     bins = hexbin(
-        x=df[x],
-        y=df[y],
-        size=tile_size,
-        orientation="flattop",
-        aspect_scale=aspect_scale,
+        x=df[x], y=df[y], size=tile_size, orientation="flattop", aspect_scale=aspect_scale,
     )
     fig = figure(
         title=title,
@@ -935,19 +869,11 @@ def hexbin_viz(
         source=bins,
         orientation="flattop",
         fill_color=linear_cmap(
-            field_name="counts",
-            palette=palette,
-            low=min(bins.counts),
-            high=max(bins.counts),
+            field_name="counts", palette=palette, low=min(bins.counts), high=max(bins.counts),
         ),
         aspect_scale=aspect_scale,
     )
-    fig.add_tools(
-        HoverTool(
-            tooltips=[("Count", "@counts")],
-            renderers=[rend],
-        )
-    )
+    fig.add_tools(HoverTool(tooltips=[("Count", "@counts")], renderers=[rend],))
     mapper = LinearColorMapper(palette=palette, low=min(bins.counts), high=max(bins.counts))
     color_bar = ColorBar(color_mapper=mapper, width=8, location=(0, 0))
     color_bar.label_standoff = 8
@@ -988,12 +914,7 @@ def nested_viz(
     )
 
     fig.vbar(
-        x="grp_names",
-        top="cnt",
-        width=1,
-        source=data_source,
-        line_color="white",
-        line_width=3,
+        x="grp_names", top="cnt", width=1, source=data_source, line_color="white", line_width=3,
     )
     tweak_figure(fig, "nested")
     fig.yaxis.axis_label = "Count"
@@ -1044,12 +965,7 @@ def stacked_viz(
         colours = palette[0 : len(grps)]
     source = ColumnDataSource(data=df)
     renderers = fig.vbar_stack(
-        stackers=grps,
-        x="index",
-        width=0.9,
-        source=source,
-        line_width=1,
-        color=colours,
+        stackers=grps, x="index", width=0.9, source=source, line_width=1, color=colours,
     )
     grps = [(grp[:14] + "...") if len(grp) > 15 else grp for grp in grps]
 
@@ -1170,11 +1086,7 @@ def heatmap_viz(
     )
     fig.add_tools(
         HoverTool(
-            tooltips=[
-                (x, f"@{{{x}}}"),
-                (y, f"@{{{y}}}"),
-                ("Count", "@cnt"),
-            ],
+            tooltips=[(x, f"@{{{x}}}"), (y, f"@{{{y}}}"), ("Count", "@cnt"),],
             mode="mouse",
             renderers=[renderer],
         )
@@ -1224,17 +1136,9 @@ def dt_line_viz(
         x_axis_type="datetime",
     )
     fig.line(
-        source=df,
-        x=x,
-        y=agg,
-        line_width=2,
-        line_alpha=0.8,
-        color="#7e9ac8",
+        source=df, x=x, y=agg, line_width=2, line_alpha=0.8, color="#7e9ac8",
     )
-    hover = HoverTool(
-        tooltips=tooltips,
-        mode="vline",
-    )
+    hover = HoverTool(tooltips=tooltips, mode="vline",)
     fig.add_tools(hover)
 
     tweak_figure(fig, "line", show_yticks)
@@ -1294,11 +1198,7 @@ def dt_multiline_viz(
         fig.add_tools(
             HoverTool(
                 renderers=[plot_dict[grp_name]],
-                tooltips=[
-                    (f"{y}", f"{grp}"),
-                    (agg, "@y"),
-                    (timeunit, "@lbl"),
-                ],
+                tooltips=[(f"{y}", f"{grp}"), (agg, "@y"), (timeunit, "@lbl"),],
                 mode="mouse",
             )
         )
@@ -1387,9 +1287,7 @@ def format_num_stats(data: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
 
 
 def format_cat_stats(
-    stats: Dict[str, Any],
-    len_stats: Dict[str, Any],
-    letter_stats: Dict[str, Any],
+    stats: Dict[str, Any], len_stats: Dict[str, Any], letter_stats: Dict[str, Any],
 ) -> Dict[str, Dict[str, str]]:
     """
     Format categorical statistics
@@ -1421,7 +1319,7 @@ def stats_viz_dt(stats: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
 
 
 def render_distribution_grid(
-    itmdt: Intermediate, yscale: str, plot_width: int, plot_height: int
+    itmdt: Intermediate, yscale: str, plot_width: int, plot_height: int, cfg: Config
 ) -> Dict[str, Any]:
     """
     Render plots and dataset stats from plot(df)
@@ -1430,22 +1328,13 @@ def render_distribution_grid(
     nrows = itmdt["stats"]["nrows"]
     titles: List[str] = []
     for col, dtype, data in itmdt["data"]:
-        if is_dtype(dtype, Nominal()):
+        if is_dtype(dtype, Nominal()) and cfg.bar._enable:
             df, ttl_grps = data
-            fig = bar_viz(
-                df,
-                ttl_grps,
-                nrows,
-                col,
-                yscale,
-                plot_width,
-                plot_height,
-                False,
-            )
-        elif is_dtype(dtype, Continuous()):
+            fig = bar_viz(df, ttl_grps, nrows, col, yscale, plot_width, plot_height, False,)
+        elif is_dtype(dtype, Continuous()) and cfg.hist._enable:
             fig = hist_viz(data, nrows, col, yscale, plot_width, plot_height, False)
             figs.append(fig)
-        elif is_dtype(dtype, DateTime()):
+        elif is_dtype(dtype, DateTime()) and cfg.line._enable:
             df, timeunit, miss_pct = data
             fig = dt_line_viz(df, col, timeunit, yscale, plot_width, plot_height, False, miss_pct)
         fig.frame_height = plot_height
@@ -1453,23 +1342,41 @@ def render_distribution_grid(
         fig.title.text = ""
         figs.append(fig)
 
+    if cfg.insight._enable and cfg.stats._enable:
+        toggle_content = "Stats and Insights"
+    elif cfg.stats._enable:
+        toggle_content = "Stats"
+    else:
+        toggle_content = "Insight"
     return {
         "layout": figs,
         "meta": titles,
-        "tabledata": format_ov_stats(itmdt["stats"]),
-        "overview_insights": itmdt["overview_insights"],
-        "column_insights": itmdt["column_insights"],
+        "tabledata": format_ov_stats(itmdt["stats"]) if cfg.stats._enable else None,
+        "overview_insights": itmdt["overview_insights"] if cfg.insight._enable else None,
+        "column_insights": itmdt["column_insights"] if cfg.insight._enable else None,
         "container_width": plot_width * 3,
+        "toggle_content": toggle_content,
     }
 
 
-def render_cat(
-    itmdt: Intermediate, yscale: str, plot_width: int, plot_height: int
-) -> Dict[str, Any]:
+def render_cat(itmdt: Intermediate, yscale: str, cfg: Config) -> Dict[str, Any]:
     """
     Render plots from plot(df, x) when x is a categorical column
     """
     # pylint: disable=too-many-locals
+    if cfg.plot.report:
+        plot_width = 280
+        plot_height = 250
+    else:
+        if cfg.plot.width == "auto":
+            plot_width = 450
+        else:
+            plot_width = cfg.plot.width
+
+        if cfg.plot.height == "auto":
+            plot_height = 400
+        else:
+            plot_height = cfg.plot.height
     tabs: List[Panel] = []
     col, data = itmdt["col"], itmdt["data"]
     # overview, word length, and charater level statistcs
@@ -1480,52 +1387,50 @@ def render_cat(
     )
     # number of present (not null) rows, and total rows
     nrows, nuniq = data["nrows"], data["nuniq"]
-    # bar chart and pie chart of the categorical values
-    bar_data, pie = data["bar"].to_frame(), data["pie"].to_frame()
-    fig = bar_viz(
-        bar_data,
-        nuniq,
-        nrows,
-        col,
-        yscale,
-        plot_width,
-        plot_height,
-        True,
-    )
-    tabs.append(Panel(child=row(fig), title="Bar Chart"))
-    tabs.append(pie_viz(pie, nrows, col, plot_width, plot_height))
-    # word counts and total number of words for the wordcloud and word frequencies bar chart
-    word_cnts, nwords, = (
-        data["word_cnts"],
-        data["nwords"],
-    )
-    if nwords > 0:
-        tabs.append(wordcloud_viz(word_cnts, plot_width, plot_height))
-        tabs.append(wordfreq_viz(word_cnts, nwords, plot_width, plot_height, True))
+    if cfg.bar._enable:
+        # bar chart and pie chart of the categorical values
+        bar_data = data["bar"].to_frame()
+        fig = bar_viz(bar_data, nuniq, nrows, col, yscale, plot_width, plot_height, True,)
+        tabs.append(Panel(child=row(fig), title="Bar Chart"))
+    if cfg.pie._enable:
+        pie = data["pie"].to_frame()
+        tabs.append(pie_viz(pie, nrows, col, plot_width, plot_height))
+
+    if cfg.wordcloud._enable:
+        nwords = data["nwords"]
+        if nwords > 0:
+            word_cnts_cloud = data["word_cnts_cloud"]
+            tabs.append(wordcloud_viz(word_cnts_cloud, plot_width, plot_height))
+    if cfg.wordfrequency._enable:
+        nwords = data["nwords"]
+        if nwords > 0:
+            word_cnts_freq = data["word_cnts_freq"]
+            tabs.append(wordfreq_viz(word_cnts_freq, nwords, plot_width, plot_height, True))
     # word length histogram
-    length_dist = hist_viz(
-        data["len_hist"], nrows, "Word Length", yscale, plot_width, plot_height, True
-    )
-    tabs.append(Panel(child=row(length_dist), title="Word Length"))
+    if cfg.wordlength._enable:
+        length_dist = hist_viz(
+            data["len_hist"], nrows, "Word Length", yscale, plot_width, plot_height, True
+        )
+        tabs.append(Panel(child=row(length_dist), title="Word Length"))
 
     # panel.child.children[0] is a figure
     for panel in tabs:
         panel.child.children[0].frame_width = int(plot_width * 0.9)
 
     return {
-        "tabledata": format_cat_stats(stats, len_stats, letter_stats),
-        "insights": nom_insights(data, col),
+        "tabledata": format_cat_stats(stats, len_stats, letter_stats) if cfg.stats._enable else [],
+        "insights": nom_insights(data, col, cfg) if cfg.insight._enable else [],
         "layout": [panel.child.children[0] for panel in tabs],
         "meta": [tab.title for tab in tabs],
         "container_width": plot_width + 110,
     }
 
 
-def nom_insights(data: Dict[str, Any], col: str) -> Dict[str, List[str]]:
+def nom_insights(data: Dict[str, Any], col: str, cfg: Config) -> Dict[str, List[str]]:
     """
     Format the insights for plot(df, Nominal())
     """
-    # pylint: disable=line-too-long
+    # pylint: disable=line-too-long, too-many-branches
     # insight dictionary, with a list associated with each plot
     ins: Dict[str, List[str]] = {
         "Stats": [],
@@ -1537,17 +1442,17 @@ def nom_insights(data: Dict[str, Any], col: str) -> Dict[str, List[str]]:
     }
 
     ## if cfg.insight.constant_enable:
-    if data["nuniq"] == 1:
+    if data["nuniq"] == cfg.insight.constant__threshold:
         ins["Stats"].append(f"{col} has a constant value")
 
     ## if cfg.insight.high_cardinality_enable:
-    if data["nuniq"] > 50:  ## cfg.insght.high_cardinality_threshold
+    if data["nuniq"] > cfg.insight.high_cardinality__threshold:
         nuniq = data["nuniq"]
         ins["Stats"].append(f"{col} has a high cardinality: {nuniq} distinct values")
 
     ## if cfg.insight.missing_enable:
     pmiss = round((data["nrows"] - data["stats"]["npres"]) / data["nrows"] * 100, 2)
-    if pmiss > 1:  ## cfg.insight.missing_threshold
+    if pmiss > cfg.insight.missing__threshold:
         nmiss = data["nrows"] - data["stats"]["npres"]
         ins["Stats"].append(f"{col} has {nmiss} ({pmiss}%) missing values")
 
@@ -1555,101 +1460,113 @@ def nom_insights(data: Dict[str, Any], col: str) -> Dict[str, List[str]]:
     if data["stats"]["nuniq"] == data["stats"]["npres"]:
         ins["Stats"].append(f"{col} has all distinct values")
 
-    ## if cfg.insight.evenness_enable:
-    if data["chisq"][1] > 0.999:  ## cfg.insight.uniform_threshold
-        ins["Bar Chart"].append(f"{col} is relatively evenly distributed")
+    if cfg.bar._enable:
+        ## if cfg.insight.uniform_enable:
+        if data["chisq"][1] > cfg.insight.uniform__threshold:  ## cfg.insight.uniform_threshold
+            ins["Bar Chart"].append(f"{col} is relatively evenly distributed")
 
-    ## if cfg.insight.outstanding_no1_enable
-    factor = data["bar"][0] / data["bar"][1] if len(data["bar"]) > 1 else 0
-    if factor > 1.5:
-        val1, val2 = data["bar"].index[0], data["bar"].index[1]
-        ins["Bar Chart"].append(
-            f"The largest value ({val1}) is over {factor} times larger than the second largest value ({val2})"
+        factor = data["bar"][0] / data["bar"][1] if len(data["bar"]) > 1 else 0
+        if factor > cfg.insight.outstanding_no1__threshold:
+            val1, val2 = data["bar"].index[0], data["bar"].index[1]
+            ins["Bar Chart"].append(
+                f"The largest value ({val1}) is over {factor} times larger than the second largest value ({val2})"
+            )
+    if cfg.pie._enable:
+        if (
+            data["pie"][:2].sum() / data["nrows"] > cfg.insight.attribution__threshold
+            and len(data["pie"]) >= 2
+        ):
+            vals = ", ".join(str(data["pie"].index[i]) for i in range(2))
+            ins["Pie Chart"].append(f"The top 2 categories ({vals}) take over {0.5*100}%")
+    if cfg.wordcloud._enable:
+        if data["nwords"] > cfg.insight.high_word_cardinality__threshold:
+            nwords = data["nwords"]
+            ins["Word Cloud"].append(f"{col} contains many words: {nwords} words")
+    if cfg.wordfrequency._enable:
+        factor = (
+            data["word_cnts_cloud"][0] / data["word_cnts_cloud"][1]
+            if len(data["word_cnts_cloud"]) > 1
+            else 0
         )
-
-    ## if cfg.insight.attribution_enable
-    if data["pie"][:2].sum() / data["nrows"] > 0.5 and len(data["pie"]) >= 2:
-        vals = ", ".join(str(data["pie"].index[i]) for i in range(2))
-        ins["Pie Chart"].append(f"The top 2 categories ({vals}) take over 50%")
-
-    ## if cfg.insight.high_word_cardinlaity_enable
-    if data["nwords"] > 1000:
-        nwords = data["nwords"]
-        ins["Word Cloud"].append(f"{col} contains many words: {nwords} words")
-
-    ## if cfg.insight.outstanding_no1_word_enable
-    factor = data["word_cnts"][0] / data["word_cnts"][1] if len(data["word_cnts"]) > 1 else 0
-    if factor > 1.5:
-        val1, val2 = data["word_cnts"].index[0], data["word_cnts"].index[1]
-        ins["Word Frequencies"].append(
-            f"The largest value ({val1}) is over {factor} times larger than the second largest value ({val2})"
-        )
-
-    ## if cfg.insight.constant_word_length_enable
-    if data["len_stats"]["Minimum"] == data["len_stats"]["Maximum"]:
-        ins["Word Frequencies"].append(f"{col} has words of constant length")
+        if factor > cfg.insight.outstanding_no1_word__threshold:
+            val1, val2 = data["word_cnts_cloud"].index[0], data["word_cnts_cloud"].index[1]
+            ins["Word Frequencies"].append(
+                f"The largest value ({val1}) is over {factor} times larger than the second largest value ({val2})"
+            )
+        ## if cfg.insight.constant_word_length_enable
+        if data["len_stats"]["Minimum"] == data["len_stats"]["Maximum"]:
+            ins["Word Frequencies"].append(f"{col} has words of constant length")
 
     return ins
 
 
-def render_num(
-    itmdt: Intermediate, yscale: str, plot_width: int, plot_height: int
-) -> Dict[str, Any]:
+def render_num(itmdt: Intermediate, yscale: str, cfg: Config) -> Dict[str, Any]:
     # pylint: disable=too-many-locals
     """
     Render plots from plot(df, x) when x is a numerical column
     """
-    col, data = itmdt["col"], itmdt["data"]
+    if cfg.plot.report:
+        plot_width = 280
+        plot_height = 250
+    else:
+        if cfg.plot.width == "auto":
+            plot_width = 450
+        else:
+            plot_width = cfg.plot.width
 
+        if cfg.plot.height == "auto":
+            plot_height = 400
+        else:
+            plot_height = cfg.plot.height
+
+    col, data = itmdt["col"], itmdt["data"]
     tabs: List[Panel] = []
-    fig = hist_viz(
-        data["hist"],
-        data["nrows"],
-        col,
-        yscale,
-        plot_width,
-        plot_height,
-        True,
-    )
-    tabs.append(Panel(child=row(fig), title="Histogram"))
+    if cfg.hist._enable:
+        fig = hist_viz(data["hist"], data["nrows"], col, yscale, plot_width, plot_height, True,)
+        tabs.append(Panel(child=row(fig), title="Histogram"))
     # kde and q-q normal
-    if data["kde"] is not None:
-        dens, kde = data["dens"], data["kde"]
-        tabs.append(kde_viz(dens, kde, col, yscale, plot_width, plot_height))
-    if data["qntls"].any():
-        qntls, mean, std = data["qntls"], data["mean"], data["std"]
-        tabs.append(qqnorm_viz(qntls, mean, std, col, plot_width, plot_height))
+    if cfg.kdeplot._enable:
+        if data["kde"] is not None:
+            dens, kde = data["dens"], data["kde"]
+            tabs.append(kde_viz(dens, kde, col, yscale, plot_width, plot_height))
+
+    if cfg.qqplot._enable:
+        if data["qntls"].any():
+            qntls, mean, std = data["qntls"], data["mean"], data["std"]
+            tabs.append(qqnorm_viz(qntls, mean, std, col, plot_width, plot_height))
 
     # box plot
-    box_data = {
-        "grp": col,
-        "q1": data["qrtl1"],
-        "q2": data["qrtl2"],
-        "q3": data["qrtl3"],
-        "lw": data["lw"],
-        "uw": data["uw"],
-        "otlrs": [data["otlrs"]],
-    }
-    df = pd.DataFrame(box_data, index=[0])
-    tabs.append(box_viz(df, col, plot_width, plot_height))
+    if cfg.boxplot._enable:
+        box_data = {
+            "grp": col,
+            "q1": data["qrtl1"],
+            "q2": data["qrtl2"],
+            "q3": data["qrtl3"],
+            "lw": data["lw"],
+            "uw": data["uw"],
+            "otlrs": [data["otlrs"]],
+        }
+        df = pd.DataFrame(box_data, index=[0])
+        tabs.append(box_viz(df, col, plot_width, plot_height))
 
     # panel.child.children[0] is a figure
     for panel in tabs:
         panel.child.children[0].frame_width = int(plot_width * 0.9)
 
     return {
-        "tabledata": format_num_stats(data),
-        "insights": cont_insights(data, col),
+        "tabledata": format_num_stats(data) if cfg.stats._enable else [],
+        "insights": cont_insights(data, col, cfg) if cfg.insight._enable else [],
         "layout": [panel.child for panel in tabs],
         "meta": [tab.title for tab in tabs],
         "container_width": plot_width + 110,
     }
 
 
-def cont_insights(data: Dict[str, Any], col: str) -> Dict[str, List[str]]:
+def cont_insights(data: Dict[str, Any], col: str, cfg: Config) -> Dict[str, List[str]]:
     """
     Format the insights for plot(df, Continuous())
     """
+    # pylint: disable = too-many-branches
     # insight dictionary with a list associated with each plot
     ins: Dict[str, List[str]] = {
         "Stats": [],
@@ -1661,70 +1578,74 @@ def cont_insights(data: Dict[str, Any], col: str) -> Dict[str, List[str]]:
 
     ## if cfg.insight.infinity_enable:
     pinf = round((data["npres"] - data["nreals"]) / data["nrows"] * 100, 2)
-    if pinf > 1:  ## cfg.insight.infinity_threshold
+    if pinf > cfg.insight.infinity__threshold:
         ninf = data["npres"] - data["nreals"]
         ins["Stats"].append(f"{col} has {ninf} ({pinf}%) infinite values")
 
     ## if cfg.insight.missing_enable:
     pmiss = round((data["nrows"] - data["npres"]) / data["nrows"] * 100, 2)
-    if pmiss > 1:  ## cfg.insight.missing_threshold
+    if pmiss > cfg.insight.missing__threshold:
         nmiss = data["nrows"] - data["npres"]
         ins["Stats"].append(f"{col} has {nmiss} ({pmiss}%) missing values")
 
     ## if cfg.insight.negatives_enable:
     pneg = round(data["nneg"] / data["nrows"] * 100, 2)
-    if pneg > 1:  ## cfg.insight.negatives_threshold
+    if pneg > cfg.insight.negatives__threshold:
         nneg = data["nneg"]
         ins["Stats"].append(f"{col} has {nneg} ({pneg}%) negatives")
 
     ## if cfg.insight.zeros_enable:
     pzero = round(data["nzero"] / data["nrows"] * 100, 2)
-    if pzero > 5:  ## cfg.insight.zeros_threshold
+    if pzero > cfg.insight.zeros__threshold:
         nzero = data["nzero"]
         ins["Stats"].append(f"{col} has {nzero} ({pzero}%) zeros")
 
-    ## if cfg.insight.normal_enable:
-    if data["norm"][1] > 0.99:
-        ins["Histogram"].append(f"{col} is normally distributed")
+    if cfg.hist._enable:
+        ## if cfg.insight.normal_enable:
+        if data["norm"][1] > cfg.insight.normal__threshold:
+            ins["Histogram"].append(f"{col} is normally distributed")
 
-    ## if cfg.insight.uniform_enable:
-    if data["chisq"][1] > 0.999:  ## cfg.insight.uniform_threshold
-        ins["Histogram"].append(f"{col} is uniformly distributed")
+        ## if cfg.insight.uniform_enable:
+        if data["chisq"][1] > cfg.insight.uniform__threshold:
+            ins["Histogram"].append(f"{col} is uniformly distributed")
 
-    ## if cfg.insight.skewed_enable:
-    skw = np.round(data["skew"], 4)
-    if skw >= 20:  ## cfg.insight.skewed_threshold
-        ins["Histogram"].append(f"{col} is skewed right (\u03B31 = {skw})")
-    if skw <= -20:  ## cfg.insight.skewed_threshold
-        ins["Histogram"].append(f"{col} is skewed left (\u03B31 = {skw})")
-
-    ## if cfg.insight.normal_enable:
-    if data["norm"][1] <= 0.01:
-        pval = data["norm"][1]
-        ins["Normal Q-Q Plot"].append(f"{col} is not normally distributed (p-value {pval})")
-
-    ## if cfg.insight.box_enable
-    if data["notlrs"] > 0:
-        notlrs = data["notlrs"]
-        ins["Box Plot"].append(f"{col} has {notlrs} outliers")
+        ## if cfg.insight.skewed_enable:
+        skw = np.round(data["skew"], 4)
+        if skw >= cfg.insight.skewed__threshold:
+            ins["Histogram"].append(f"{col} is skewed right (\u03B31 = {skw})")
+        if skw <= -cfg.insight.skewed__threshold:
+            ins["Histogram"].append(f"{col} is skewed left (\u03B31 = {skw})")
+    if cfg.qqplot._enable:
+        ## if cfg.insight.normal_enable:
+        if data["norm"][1] <= 1 - cfg.insight.normal__threshold:
+            pval = data["norm"][1]
+            ins["Normal Q-Q Plot"].append(f"{col} is not normally distributed (p-value {pval})")
+    if cfg.boxplot._enable:
+        ## if cfg.insight.box_enable
+        if data["notlrs"] > cfg.insight.outlier__threshold:
+            notlrs = data["notlrs"]
+            ins["Box Plot"].append(f"{col} has {notlrs} outliers")
 
     return ins
 
 
-def render_dt(
-    itmdt: Intermediate, yscale: str, plot_width: int, plot_height: int
-) -> Dict[str, Any]:
+def render_dt(itmdt: Intermediate, yscale: str, cfg: Config) -> Dict[str, Any]:
     """
     Render plots from plot(df, x) when x is a numerical column
     """
-    tabs: List[Panel] = []
-    df, timeunit, miss_pct = itmdt["line"]
-    fig = dt_line_viz(df, itmdt["col"], timeunit, yscale, plot_width, plot_height, True, miss_pct)
-    fig.frame_width = int(plot_width * 0.95)
-    tabs.append(Panel(child=fig, title="Line Chart"))
+    plot_width = cfg.plot.width if cfg.plot.width != "auto" else 450
+    plot_height = cfg.plot.height if cfg.plot.height != "auto" else 400
 
+    tabs: List[Panel] = []
+    if cfg.line._enable:
+        df, timeunit, miss_pct = itmdt["line"]
+        fig = dt_line_viz(
+            df, itmdt["col"], timeunit, yscale, plot_width, plot_height, True, miss_pct
+        )
+        fig.frame_width = int(plot_width * 0.95)
+        tabs.append(Panel(child=fig, title="Line Chart"))
     return {
-        "tabledata": stats_viz_dt(itmdt["data"]),
+        "tabledata": stats_viz_dt(itmdt["data"]) if cfg.stats._enable else [],
         "insights": None,
         "layout": [panel.child for panel in tabs],
         "meta": [tab.title for tab in tabs],
@@ -1732,39 +1653,30 @@ def render_dt(
     }
 
 
-def render_cat_num(
-    itmdt: Intermediate,
-    yscale: str,
-    plot_width: int,
-    plot_height: int,
-) -> Dict[str, Any]:
+def render_cat_num(itmdt: Intermediate, yscale: str, cfg: Config) -> Dict[str, Any]:
+
     """
     Render plots from plot(df, x, y) when x is a categorical column
     and y is a numerical column
     """
+    plot_width = cfg.plot.width if cfg.plot.width != "auto" else 450
+    plot_height = cfg.plot.height if cfg.plot.height != "auto" else 400
+
     tabs: List[Panel] = []
     data, x, y = itmdt["data"], itmdt["x"], itmdt["y"]
 
-    # box plot
-    df = data["box"].to_frame().reset_index()[: 5 * itmdt["ngroups"]]
-    df = df.pivot(index=itmdt["x"], columns="level_1", values=[0]).reset_index()
-    df.columns = df.columns.get_level_values(1)
-    df.columns = ["grp"] + list(df.columns[1:])
-    tabs.append(box_viz(df, x, plot_width, plot_height, y, data["ttl_grps"]))
+    if cfg.boxplot._enable:
+        # box plot
+        df = data["box"].to_frame().reset_index()[: 5 * itmdt["ngroups_box"]]
+        df = df.pivot(index=itmdt["x"], columns="level_1", values=[0]).reset_index()
+        df.columns = df.columns.get_level_values(1)
+        df.columns = ["grp"] + list(df.columns[1:])
+        tabs.append(box_viz(df, x, plot_width, plot_height, y, data["ttl_grps"]))
 
-    # multiline plot
-    df = data["hist"].to_frame()[: itmdt["ngroups"]]
-    tabs.append(
-        line_viz(
-            df,
-            x,
-            y,
-            yscale,
-            plot_width,
-            plot_height,
-            data["ttl_grps"],
-        )
-    )
+    if cfg.line._enable:
+        # multiline plot
+        df = data["hist"].to_frame()[: itmdt["ngroups_line"]]
+        tabs.append(line_viz(df, x, y, yscale, plot_width, plot_height, data["ttl_grps"],))
     for panel in tabs:
         panel.child.children[0].frame_width = int(plot_width * 0.9)
     return {
@@ -1775,44 +1687,36 @@ def render_cat_num(
 
 
 def render_two_num(
-    itmdt: Intermediate,
-    plot_width: int,
-    plot_height: int,
-    tile_size: Optional[float] = None,
+    itmdt: Intermediate, cfg: Config, tile_size: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Render plots from plot(df, x, y) when x and y are numerical columns
     """
+    plot_width = cfg.plot.width if cfg.plot.width != "auto" else 450
+    plot_height = cfg.plot.height if cfg.plot.height != "auto" else 400
+
     tabs: List[Panel] = []
     data = itmdt["data"]
-    # scatter plot
-    tabs.append(
-        scatter_viz(
-            data["scat"],
-            itmdt["x"],
-            itmdt["y"],
-            itmdt["spl_sz"],
-            plot_width,
-            plot_height,
+    if cfg.scatter._enable:
+        # scatter plot
+        tabs.append(
+            scatter_viz(
+                data["scat"], itmdt["x"], itmdt["y"], itmdt["spl_sz"], plot_width, plot_height,
+            )
         )
-    )
-    # hexbin plot
-    tabs.append(
-        hexbin_viz(
-            data["hex"],
-            itmdt["x"],
-            itmdt["y"],
-            plot_width,
-            plot_height,
-            tile_size,
+    if cfg.hexbin._enable:
+        # hexbin plot
+        tabs.append(
+            hexbin_viz(data["hex"], itmdt["x"], itmdt["y"], plot_width, plot_height, tile_size,)
         )
-    )
-    # box plot
-    df = data["box"].to_frame().reset_index()
-    df = df.pivot(index="grp", columns="level_1", values=[0]).reset_index()
-    df.columns = df.columns.get_level_values(1)
-    df.columns = ["grp"] + list(df.columns[1:])
-    tabs.append(box_viz(df, itmdt["x"], plot_width, plot_height, itmdt["y"]))
+
+    if cfg.boxplot._enable:
+        # box plot
+        df = data["box"].to_frame().reset_index()
+        df = df.pivot(index="grp", columns="level_1", values=[0]).reset_index()
+        df.columns = df.columns.get_level_values(1)
+        df.columns = ["grp"] + list(df.columns[1:])
+        tabs.append(box_viz(df, itmdt["x"], plot_width, plot_height, itmdt["y"]))
     for panel in tabs:
         try:
             panel.child.frame_width = int(plot_width * 0.9)
@@ -1825,48 +1729,73 @@ def render_two_num(
     }
 
 
-def render_two_cat(
-    itmdt: Intermediate,
-    plot_width: int,
-    plot_height: int,
-) -> Dict[str, Any]:
+def render_two_cat(itmdt: Intermediate, cfg: Config) -> Dict[str, Any]:
     """
     Render plots from plot(df, x, y) when x and y are categorical columns
     """
+    # pylint: disable=too-many-locals
+
+    plot_width = cfg.plot.width if cfg.plot.width != "auto" else 972
+    plot_height = cfg.plot.height if cfg.plot.height != "auto" else 300
+
     tabs: List[Panel] = []
     df = itmdt["data"].to_frame("cnt").reset_index()
     x, y = itmdt["x"], itmdt["y"]
-
-    # parse the dataframe to consist of the ngroups largest x groups
     xgrps = df.groupby(x)["cnt"].sum()
-    x_lrgst = xgrps.nlargest(itmdt["ngroups"])
-    df = df[df[x].isin(x_lrgst.index)]
-    stats = {f"{x}_ttl": len(xgrps), f"{x}_shw": len(x_lrgst)}
-
-    # parse the dataframe to consist of the nsubgroups largest y groups
     ygrps = df.groupby(y)["cnt"].sum()
-    y_lrgst = ygrps.nlargest(itmdt["nsubgroups"])
-    df = df[df[y].isin(y_lrgst.index)]
-    stats.update(zip((f"{y}_ttl", f"{y}_shw"), (len(ygrps), len(y_lrgst))))
-    df[[x, y]] = df[[x, y]].astype(str)
 
-    # final format
-    df = df.pivot_table(index=y, columns=x, values="cnt", fill_value=0, aggfunc="sum")
-    df = df.unstack().to_frame("cnt").reset_index()
+    ngroups_nested = itmdt["ngroups_nested"]
+    ngroups_stacked = itmdt["ngroups_stacked"]
+    ngroups_heat = itmdt["ngroups_heat"]
+    nsubgroups_nested = itmdt["nsubgroups_nested"]
+    nsubgroups_stacked = itmdt["nsubgroups_stacked"]
+    nsubgroups_heat = itmdt["nsubgroups_heat"]
+
+    if (
+        ngroups_nested == ngroups_stacked == ngroups_heat
+        and nsubgroups_nested == nsubgroups_stacked == nsubgroups_heat
+    ):
+        (
+            df_nested,
+            stats_nested,
+            df_stacked,
+            stats_stacked,
+            df_heat,
+            stats_heat,
+        ) = parse_ngroups_nsubgroups(
+            df, ngroups_nested, nsubgroups_nested, x, y, xgrps, ygrps, True
+        )
+
+    else:
+        if cfg.nestedbar._enable:
+            df_nested, stats_nested = parse_ngroups_nsubgroups(
+                df, ngroups_nested, nsubgroups_nested, x, y, xgrps, ygrps, False
+            )
+        if cfg.stackedbar._enable:
+            df_stacked, stats_stacked = parse_ngroups_nsubgroups(
+                df, ngroups_stacked, nsubgroups_stacked, x, y, xgrps, ygrps, False
+            )
+        if cfg.heatmap._enable:
+            df_heat, stats_heat = parse_ngroups_nsubgroups(
+                df, ngroups_heat, nsubgroups_heat, x, y, xgrps, ygrps, False
+            )
 
     # nested bar chart
-    tabs.append(nested_viz(df, x, y, stats, plot_width, plot_height))
-    # stacked bar chart
-    # wrangle the dataframe into a pivot table format
-    df2 = df.pivot(index=x, columns=y, values="cnt")
-    df2.index.name = None
-    # aggregate remaining groups into "Others"
-    df2["Others"] = xgrps - df2.sum(axis=1)
-    if df2["Others"].sum() < 1e-6:
-        df2 = df2.drop(columns=["Others"])
-    tabs.append(stacked_viz(df2, x, y, stats, plot_width, plot_height))
+    if cfg.nestedbar._enable:
+        tabs.append(nested_viz(df_nested, x, y, stats_nested, plot_width, plot_height))
+    if cfg.stackedbar._enable:
+        # stacked bar chart
+        # wrangle the dataframe into a pivot table format
+        df_stacked = df_stacked.pivot(index=x, columns=y, values="cnt")
+        df_stacked.index.name = None
+        # aggregate remaining groups into "Others"
+        df_stacked["Others"] = xgrps - df_stacked.sum(axis=1)
+        if df_stacked["Others"].sum() < 1e-6:
+            df_stacked = df_stacked.drop(columns=["Others"])
+        tabs.append(stacked_viz(df_stacked, x, y, stats_stacked, plot_width, plot_height))
     # heat map
-    tabs.append(heatmap_viz(df, x, y, stats, plot_width, plot_height))
+    if cfg.heatmap._enable:
+        tabs.append(heatmap_viz(df_heat, x, y, stats_heat, plot_width, plot_height))
 
     return {
         "layout": [panel.child for panel in tabs],
@@ -1875,42 +1804,68 @@ def render_two_cat(
     }
 
 
-def render_dt_num(
-    itmdt: Intermediate,
-    yscale: str,
-    plot_width: int,
-    plot_height: int,
-) -> Dict[str, Any]:
+def parse_ngroups_nsubgroups(
+    df: pd.DataFrame,
+    ngroups: int,
+    nsubgroups: int,
+    x: str,
+    y: str,
+    xgrps: pd.DataFrame,
+    ygrps: pd.DataFrame,
+    equal: bool,
+) -> Any:
+    """
+    Parse the data for nested bar chart, stacked bar chart, heat map
+    according to the given ngroups and nsubgroups
+    """
+    # pylint: disable = too-many-arguments
+    x_lrgst = xgrps.nlargest(ngroups)
+    df = df[df[x].isin(x_lrgst.index)]
+    stats = {f"{x}_ttl": len(xgrps), f"{x}_shw": len(x_lrgst)}
+    y_lrgst = ygrps.nlargest(nsubgroups)
+    df = df[df[y].isin(y_lrgst.index)]
+    stats.update(zip((f"{y}_ttl", f"{y}_shw"), (len(ygrps), len(y_lrgst))))
+    df[[x, y]] = df[[x, y]].astype(str)
+    # final format
+    df = df.pivot_table(index=y, columns=x, values="cnt", fill_value=0, aggfunc="sum")
+    df = df.unstack().to_frame("cnt").reset_index()
+    if equal:
+        return [df, stats] * 3
+    else:
+        return df, stats
+
+
+def render_dt_num(itmdt: Intermediate, yscale: str, cfg: Config,) -> Dict[str, Any]:
+
     """
     Render plots from plot(df, x, y) when x is dt and y is num
     """
+    plot_width = cfg.plot.width if cfg.plot.width != "auto" else 450
+    plot_height = cfg.plot.height if cfg.plot.height != "auto" else 400
+
     tabs: List[Panel] = []
-    linedf, timeunit = itmdt["linedata"]
-    tabs.append(
-        dt_line_viz(
-            linedf,
-            itmdt["x"],
-            timeunit,
-            yscale,
-            plot_width,
-            plot_height,
-            True,
-            y=itmdt["y"],
+    if cfg.line._enable:
+        linedf, timeunit = itmdt["linedata"]
+        tabs.append(
+            dt_line_viz(
+                linedf, itmdt["x"], timeunit, yscale, plot_width, plot_height, True, y=itmdt["y"],
+            )
         )
-    )
-    boxdf, outx, outy, timeunit = itmdt["boxdata"]
-    tabs.append(
-        box_viz_dt(
-            boxdf,
-            outx,
-            outy,
-            itmdt["x"],
-            plot_width,
-            plot_height,
-            itmdt["y"],
-            timeunit=timeunit,
+    if cfg.boxplot._enable:
+        boxdf, outx, outy, timeunit = itmdt["boxdata"]
+        tabs.append(
+            box_viz_dt(
+                boxdf,
+                outx,
+                outy,
+                itmdt["x"],
+                plot_width,
+                plot_height,
+                itmdt["y"],
+                timeunit=timeunit,
+            )
         )
-    )
+
     return {
         "layout": [panel.child for panel in tabs],
         "meta": [panel.title for panel in tabs],
@@ -1918,33 +1873,37 @@ def render_dt_num(
     }
 
 
-def render_dt_cat(
-    itmdt: Intermediate,
-    yscale: str,
-    plot_width: int,
-    plot_height: int,
-) -> Dict[str, Any]:
+def render_dt_cat(itmdt: Intermediate, yscale: str, cfg: Config) -> Dict[str, Any]:
+
     """
     Render plots from plot(df, x, y) when x is dt and y is num
     """
+    plot_width = cfg.plot.width if cfg.plot.width != "auto" else 972
+    plot_height = cfg.plot.height if cfg.plot.height != "auto" else 400
+
     tabs: List[Panel] = []
-    data, grp_cnt_stats, timeunit = itmdt["linedata"]
-    tabs.append(
-        dt_multiline_viz(
-            data,
-            itmdt["x"],
-            itmdt["y"],
-            timeunit,
-            yscale,
-            plot_width,
-            plot_height,
-            grp_cnt_stats,
+    if cfg.line._enable:
+        data, grp_cnt_stats, timeunit = itmdt["linedata"]
+        tabs.append(
+            dt_multiline_viz(
+                data,
+                itmdt["x"],
+                itmdt["y"],
+                timeunit,
+                yscale,
+                plot_width,
+                plot_height,
+                grp_cnt_stats,
+            )
         )
-    )
-    df, grp_cnt_stats, timeunit = itmdt["stackdata"]
-    tabs.append(
-        stacked_viz(df, itmdt["x"], itmdt["y"], grp_cnt_stats, plot_width, plot_height, timeunit)
-    )
+    if cfg.stackedbar._enable:
+        df, grp_cnt_stats, timeunit = itmdt["stackdata"]
+        tabs.append(
+            stacked_viz(
+                df, itmdt["x"], itmdt["y"], grp_cnt_stats, plot_width, plot_height, timeunit
+            )
+        )
+
     return {
         "layout": [panel.child for panel in tabs],
         "meta": [panel.title for panel in tabs],
@@ -1952,15 +1911,14 @@ def render_dt_cat(
     }
 
 
-def render_dt_num_cat(
-    itmdt: Intermediate,
-    yscale: str,
-    plot_width: int,
-    plot_height: int,
-) -> Dict[str, Any]:
+def render_dt_num_cat(itmdt: Intermediate, yscale: str, cfg: Config) -> Dict[str, Any]:
+
     """
     Render plots from plot(df, x, y) when x is dt and y is num
     """
+    plot_width = cfg.plot.width if cfg.plot.width != "auto" else 972
+    plot_height = cfg.plot.height if cfg.plot.height != "auto" else 400
+
     tabs: List[Panel] = []
     data, grp_cnt_stats, timeunit = itmdt["data"]
     tabs.append(
@@ -1986,13 +1944,11 @@ def render_dt_num_cat(
 
 def render(
     itmdt: Intermediate,
+    cfg: Config,
     yscale: str = "linear",
     tile_size: Optional[float] = None,
     plot_width_sml: int = 324,
     plot_height_sml: int = 300,
-    plot_width_lrg: int = 450,
-    plot_height_lrg: int = 400,
-    plot_width_wide: int = 972,
 ) -> Union[LayoutDOM, Dict[str, Any]]:
     """
     Render a basic plot
@@ -2010,35 +1966,30 @@ def render(
         The width of the small plots
     plot_height_small: int, default 300
         The height of the small plots
-    plot_width_large: int, default 450
-        The width of the large plots
-    plot_height_large: int, default 400
-        The height of the large plots
-    plot_width_large: int, default 972
-        The width of the large plots
-    plot_width_wide: int, default 972
-        The width of the wide plots
+    cfg:
+        Config instance created using config and display that user passed in.
     """
     # pylint: disable=too-many-arguments
+
     if itmdt.visual_type == "distribution_grid":
-        visual_elem = render_distribution_grid(itmdt, yscale, plot_width_sml, plot_height_sml)
+        visual_elem = render_distribution_grid(itmdt, yscale, plot_width_sml, plot_height_sml, cfg)
     elif itmdt.visual_type == "categorical_column":
-        visual_elem = render_cat(itmdt, yscale, plot_width_lrg, plot_height_lrg)
+        visual_elem = render_cat(itmdt, yscale, cfg)
     elif itmdt.visual_type == "numerical_column":
-        visual_elem = render_num(itmdt, yscale, plot_width_lrg, plot_height_lrg)
+        visual_elem = render_num(itmdt, yscale, cfg)
     elif itmdt.visual_type == "datetime_column":
-        visual_elem = render_dt(itmdt, yscale, plot_width_lrg, plot_height_lrg)
+        visual_elem = render_dt(itmdt, yscale, cfg)
     elif itmdt.visual_type == "cat_and_num_cols":
-        visual_elem = render_cat_num(itmdt, yscale, plot_width_lrg, plot_height_lrg)
+        visual_elem = render_cat_num(itmdt, yscale, cfg)
     elif itmdt.visual_type == "two_num_cols":
-        visual_elem = render_two_num(itmdt, plot_width_lrg, plot_height_lrg, tile_size)
+        visual_elem = render_two_num(itmdt, cfg, tile_size)
     elif itmdt.visual_type == "two_cat_cols":
-        visual_elem = render_two_cat(itmdt, plot_width_wide, plot_height_sml)
+        visual_elem = render_two_cat(itmdt, cfg)
     elif itmdt.visual_type == "dt_and_num_cols":
-        visual_elem = render_dt_num(itmdt, yscale, plot_width_lrg, plot_height_lrg)
+        visual_elem = render_dt_num(itmdt, yscale, cfg)
     elif itmdt.visual_type == "dt_and_cat_cols":
-        visual_elem = render_dt_cat(itmdt, yscale, plot_width_wide, plot_height_lrg)
+        visual_elem = render_dt_cat(itmdt, yscale, cfg)
     elif itmdt.visual_type == "dt_cat_num_cols":
-        visual_elem = render_dt_num_cat(itmdt, yscale, plot_width_wide, plot_height_lrg)
+        visual_elem = render_dt_num_cat(itmdt, yscale, cfg)
 
     return visual_elem

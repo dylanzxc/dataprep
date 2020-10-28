@@ -149,7 +149,7 @@
         color: #141212;
         display: inline-block;
         cursor: pointer;
-        width: 972px;
+        width: {{context.container_width}}px;
         background-color: white;
         border: 1px solid #b5d6ea;
         border-radius: 5px;
@@ -166,7 +166,7 @@
     .stats-{{ context.rnd }} {
         display: none;
         justify-content: space-between;
-        width: 972px;
+        width: {{context.container_width}};
         height: 350px;
     }
 
@@ -188,8 +188,8 @@
     }
 
     .tabledata-{{ context.rnd }} {
-        flex: 0 1 50%;
-        max-width: 477px;
+        flex: 1 1 50%;
+<!--        max-width: 477px;-->
     }
 
     .tabledata-{{ context.rnd }} h3 {
@@ -205,9 +205,8 @@
     }
 
     .insights-{{ context.rnd }} {
-        flex: 0 1 50%;
+        flex: 1 1 50%;
         text-align: center;
-        max-width: 477px;
     }
 
     .page-box-{{ context.rnd }} {

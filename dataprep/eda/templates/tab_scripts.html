@@ -6,7 +6,9 @@
 
     function init() {
         const tableRows = document.querySelectorAll('.tabledata-{{ context.rnd }} tr');
+        {% if context.highlight %}
         highlightTableValue(tableRows, '#f00');
+        {% endif %}
         scientificNotationStrip(tableRows);
     }
 

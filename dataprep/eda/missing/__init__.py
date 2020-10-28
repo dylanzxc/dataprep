@@ -2,7 +2,7 @@
     This module implements the plot_missing(df) function
 """
 
-from typing import Optional, Union
+from typing import Optional, Union, Dict, List, Any
 
 import dask.dataframe as dd
 import pandas as pd
@@ -12,6 +12,7 @@ from ..progress_bar import ProgressBar
 from .compute import compute_missing
 from .render import render_missing
 from ..container import Container
+from ..basic.configs import Config
 
 __all__ = ["render_missing", "compute_missing", "plot_missing"]
 
@@ -25,6 +26,8 @@ def plot_missing(
     ndist_sample: int = 100,
     dtype: Optional[DTypeDef] = None,
     progress: bool = True,
+    config: Union[Dict[str, Any], str] = "auto",
+    display: Union[List[str], str] = "auto",
 ) -> Container:
     """
     This function is designed to deal with missing values
@@ -50,7 +53,13 @@ def plot_missing(
         or dtype = Continuous() or dtype = "Continuous" or dtype = Continuous().
     progress
         Enable the progress bar.
-
+    config
+        The config dict user passed in. E.g. config =  {"hist.bins": 20}
+        Without user's specifications, the default is "auto"
+    display
+        The list that contains the names of plots user wants to display,
+        E.g. display =  ["bar", "hist"]
+        Without user's specifications, the default is "auto"
     Examples
     ----------
     >>> from dataprep.eda.missing.computation import plot_missing
@@ -59,9 +68,9 @@ def plot_missing(
     >>> plot_missing(df, "HDI_for_year")
     >>> plot_missing(df, "HDI_for_year", "population")
     """
-
+    cfg = Config.from_dict(display, config)
     with ProgressBar(minimum=1, disable=not progress):
         itmdt = compute_missing(df, x, y, dtype=dtype, bins=bins, ndist_sample=ndist_sample)
     to_render = render_missing(itmdt)
 
-    return Container(to_render, itmdt.visual_type)
+    return Container(to_render, itmdt.visual_type, cfg=cfg)

@@ -31,10 +31,11 @@ from ..missing import render_missing
 from ..missing.compute.nullivariate import compute_missing_nullivariate
 from ..progress_bar import ProgressBar
 from ..utils import to_dask
+from ..basic.configs import Config
 
 
 def format_report(
-    df: Union[pd.DataFrame, dd.DataFrame], mode: Optional[str], progress: bool = True
+    df: Union[pd.DataFrame, dd.DataFrame], mode: Optional[str], cfg: Config, progress: bool = True,
 ) -> Dict[str, Any]:
     """
     Format the data and figures needed by report
@@ -46,6 +47,9 @@ def format_report(
     mode
         This controls what type of report to be generated.
         Currently only the 'basic' is fully implemented.
+    cfg
+        The config dict user passed in. E.g. config =  {"hist.bins": 20}
+        Without user's specifications, the default is "auto"
     progress
         Whether to show the progress bar.
 
@@ -56,11 +60,12 @@ def format_report(
         This variable acts like an API in passing data to the template engine.
     """
     # pylint: disable=too-many-locals,too-many-statements
+
     with ProgressBar(minimum=1, disable=not progress):
         df = to_dask(df)
         df = string_dtype_to_object(df)
         if mode == "basic":
-            comps = format_basic(df)
+            comps = format_basic(df, cfg)
         # elif mode == "full":
         #     comps = format_full(df)
         # elif mode == "minimal":
@@ -70,7 +75,7 @@ def format_report(
     return comps
 
 
-def format_basic(df: dd.DataFrame) -> Dict[str, Any]:
+def format_basic(df: dd.DataFrame, cfg: Config) -> Dict[str, Any]:
     # pylint: disable=too-many-statements
     """
     Format basic version.
@@ -79,7 +84,9 @@ def format_basic(df: dd.DataFrame) -> Dict[str, Any]:
     ----------
     df
         The DataFrame for which data are calculated.
-
+    cfg
+        The config dict user passed in. E.g. config =  {"hist.bins": 20}
+        Without user's specifications, the default is "auto"
     Returns
     -------
     Dict[str, Any]
@@ -88,13 +95,12 @@ def format_basic(df: dd.DataFrame) -> Dict[str, Any]:
     """
     # pylint: disable=too-many-locals
     # aggregate all computations
-    data, completions = basic_computations(df)
+    setattr(getattr(cfg, "plot"), "report", True)
+    data, completions = basic_computations(df, cfg)
 
     with catch_warnings():
         filterwarnings(
-            "ignore",
-            "invalid value encountered in true_divide",
-            category=RuntimeWarning,
+            "ignore", "invalid value encountered in true_divide", category=RuntimeWarning,
         )
         (data,) = dask.compute(data)
 
@@ -111,11 +117,11 @@ def format_basic(df: dd.DataFrame) -> Dict[str, Any]:
         stats: Any = None  # needed for pylint
         if is_dtype(detect_dtype(df[col]), Continuous()):
             itmdt = Intermediate(col=col, data=data[col], visual_type="numerical_column")
-            rndrd = render(itmdt, plot_height_lrg=250, plot_width_lrg=280)["layout"]
+            rndrd = render(itmdt, cfg=cfg)["layout"]
             stats = format_num_stats(data[col])
         elif is_dtype(detect_dtype(df[col]), Nominal()):
             itmdt = Intermediate(col=col, data=data[col], visual_type="categorical_column")
-            rndrd = render(itmdt, plot_height_lrg=250, plot_width_lrg=280)["layout"]
+            rndrd = render(itmdt, cfg)["layout"]
             stats = format_cat_stats(
                 data[col]["stats"], data[col]["len_stats"], data[col]["letter_stats"]
             )
@@ -154,9 +160,7 @@ def format_basic(df: dd.DataFrame) -> Dict[str, Any]:
             )
             dfs[method.name] = ndf[data["cordy"] > data["cordx"]]
         itmdt = Intermediate(
-            data=dfs,
-            axis_range=list(data["num_cols"]),
-            visual_type="correlation_heatmaps",
+            data=dfs, axis_range=list(data["num_cols"]), visual_type="correlation_heatmaps",
         )
         rndrd = render_correlation(itmdt)
         figs.clear()
@@ -186,13 +190,16 @@ def format_basic(df: dd.DataFrame) -> Dict[str, Any]:
     return res
 
 
-def basic_computations(df: dd.DataFrame) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+def basic_computations(df: dd.DataFrame, cfg: Config) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Computations for the basic version.
 
     Parameters
     ----------
     df
         The DataFrame for which data are calculated.
+    cfg
+        The config dict user passed in. E.g. config =  {"hist.bins": 20}
+        Without user's specifications, the default is "auto"
     """
     data: Dict[str, Any] = {}
     df = DataArray(df)
@@ -211,9 +218,7 @@ def basic_computations(df: dd.DataFrame) -> Tuple[Dict[str, Any], Dict[str, Any]
                 first_rows[col].apply(hash)
             except TypeError:
                 df.frame[col] = df.frame[col].astype(str)
-            data[col] = nom_comps(
-                df.frame[col], first_rows[col], 10, True, 10, 20, True, False, False
-            )
+            data[col] = nom_comps(df.frame[col], first_rows[col], cfg)
     # overview
     data["ov"] = calc_stats(df.frame, None)
     # interactions

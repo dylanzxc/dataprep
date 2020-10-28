@@ -16,17 +16,11 @@ from ...dtypes import (
 from ...intermediate import Intermediate
 from .common import _calc_line_dt
 
+from ...basic.configs import Config
+
 
 def compute_trivariate(
-    df: dd.DataFrame,
-    x: str,
-    y: str,
-    z: str,
-    ngroups: int,
-    largest: bool,
-    timeunit: str,
-    agg: str,
-    dtype: Optional[DTypeDef] = None,
+    cfg: Config, df: dd.DataFrame, x: str, y: str, z: str, dtype: Optional[DTypeDef] = None,
 ) -> Intermediate:
     """Compute functions for plot(df, x, y, z).
 
@@ -40,29 +34,14 @@ def compute_trivariate(
         A valid column name from the dataframe
     z
         A valid column name from the dataframe
-    bins
-        For a histogram or box plot with numerical x axis, it defines
-        the number of equal-width bins to use when grouping.
-    ngroups
-        When grouping over a categorical column, it defines the
-        number of groups to show in the plot. Ie, the number of
-        bars to show in a bar chart.
-    largest
-        If true, when grouping over a categorical column, the groups
-        with the largest count will be output. If false, the groups
-        with the smallest count will be output.
-    timeunit
-        Defines the time unit to group values over for a datetime column.
-        It can be "year", "quarter", "month", "week", "day", "hour",
-        "minute", "second". With default value "auto", it will use the
-        time unit such that the resulting number of groups is closest to 15.
-    agg
-        Specify the aggregate to use when aggregating over a numeric column
+
     dtype: str or DType or dict of str or dict of DType, default None
         Specify Data Types for designated column or all columns.
         E.g.  dtype = {"a": Continuous, "b": "Nominal"} or
         dtype = {"a": Continuous(), "b": "nominal"}
         or dtype = Continuous() or dtype = "Continuous" or dtype = Continuous()
+    cfg:
+        Config instance created using config and display that user passed in.
     """
     # pylint: disable=too-many-arguments
 
@@ -100,12 +79,11 @@ def compute_trivariate(
     df[z] = df[z].apply(str, meta=(z, str))
 
     # line chart
-    data = dask.compute(dask.delayed(_calc_line_dt)(df, timeunit, agg, ngroups, largest))
+    data = dask.compute(
+        dask.delayed(_calc_line_dt)(
+            df, cfg.line.unit, cfg.line.agg, cfg.line.ngroups, cfg.line.sort_descending
+        )
+    )
     return Intermediate(
-        x=x,
-        y=y,
-        z=z,
-        agg=agg,
-        data=data[0],
-        visual_type="dt_cat_num_cols",
+        x=x, y=y, z=z, agg=cfg.line.agg, data=data[0], visual_type="dt_cat_num_cols",
     )
